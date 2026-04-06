@@ -77,7 +77,7 @@ if __name__ == "__main__":
         axes_flat[i] = sns.swarmplot(df_xai_energy.loc[bb], y="variable", x = "value", hue = "Method", size=4, ax = axes_flat[i])
         axes_flat[i].set_title(bb)
         axes_flat[i].set_ylabel("Threshold")
-        axes_flat[i].set_xlabel("ROI Mass Fraction")
+        axes_flat[i].set_xlabel("ROI Energy Fraction")
 
         axes_flat[i].legend_.remove()
 
@@ -95,5 +95,5 @@ if __name__ == "__main__":
 
     # ax = sns.stripplot(df_xai_energy, y="variable", x = "value", hue = "Method")
     plt.tight_layout(rect=[0, 0, 1, 0.95])
-    plt.savefig("roi_mass_fraction.png")
+    plt.savefig("roi_energy_fraction.png")
     plt.show()
