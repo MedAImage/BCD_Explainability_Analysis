@@ -319,18 +319,21 @@ if __name__ == "__main__":
 
     df_results = df_results.melt(ignore_index=False).reset_index()#.pivot(index="Bias", columns="Energy")
     print(df_results)
-
+    df_results = df_results.rename(columns={"variable":"Map type", "value": "correlation"})
     # flights_wide = flights.pivot(index="year", columns="month", values="passengers")
     # flights_wide.head()
     fig, axes = plt.subplots(1, 2, figsize=(8, 4))
 
     axes_flat = axes.flatten()
 
-    axes_flat[0] = sns.lineplot(df_results[df_results["Metric"]=='spearman'], x = 'Bias', y = "value", hue = "variable", style="Metric", ax = axes_flat[0])
+    axes_flat[0] = sns.lineplot(df_results[df_results["Metric"]=='spearman'], x = 'Bias', y = "correlation", hue = "Map type", ax = axes_flat[0])
     axes_flat[0].set_ylim(0.9, 1)
-    axes_flat[1] = sns.lineplot(df_results[df_results["Metric"]=='ccc'], x = 'Bias', y = "value", hue = "variable", style="Metric", ax = axes_flat[1])
+    axes_flat[0].set_ylabel("Spearman correlation")
+    axes_flat[1] = sns.lineplot(df_results[df_results["Metric"]=='ccc'], x = 'Bias', y = "correlation", hue = "Map type", ax = axes_flat[1])
     axes_flat[1].set_ylim(0.5, 1)
+    axes_flat[1].set_ylabel("CCC")
     plt.tight_layout()
+    plt.savefig("bias_analysis.png")
     plt.show()
 
 
