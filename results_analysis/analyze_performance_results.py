@@ -18,7 +18,7 @@ def performance_with_without_expl_plot_bars(
     ax,
     df_runs_orig: pd.DataFrame,
     df_runs_expl: pd.DataFrame,
-    metric: str = "auc-roc",
+    metric: str = "AUC",
     title: str | None = None,
     figsize=(10, 5),
     inner_factor=0.65,
@@ -173,12 +173,15 @@ def plot_model_threshold_heatmap(
         cbar=cbar,
         cbar_ax=cbar_ax
     )
+    if cbar:
+        cbar_ax.tick_params(labelsize=12)
 
     # Etiquetas inferiores: thresholds
     lower_labels = [str(t) for _m in model_order for t in thresholds]
     ax.set_xticklabels(lower_labels, rotation=0)
-    ax.set_ylabel("Experiment", loc="center")
-    ax.set_xlabel("Energy threshold")
+    ax.set_ylabel("Data configuration", y=0.4, fontsize=12)
+    ax.set_xlabel("Energy threshold", fontsize=12)
+    ax.tick_params(axis='both', labelsize = 12)
 
     # Separadores entre bloques de modelos
     n_thr = len(thresholds)
@@ -189,7 +192,7 @@ def plot_model_threshold_heatmap(
     y_top = -0.2
     for i, model in enumerate(model_order):
         center = i * n_thr + n_thr / 2
-        ax.text(center, y_top, model, ha='center', va='bottom', fontsize=10)
+        ax.text(center, y_top, model, ha='center', va='bottom', fontsize=12)
 
     # Ajustar l�mites para que se vea el texto superior
     ax.set_ylim(len(full.index), -1.0)
@@ -210,8 +213,8 @@ if __name__ == "__main__":
     df_exp_50 = dict_to_df_fold_seed_metric(experiment_results_50["explain"])
 
 
-    df_exp_temp = df_exp_75.rename(columns={"precision":"P_exp", "recall":"recall_exp", 
-                                         "f1":"f1_exp", "acc":"acc_exp", "auc-roc":"auc-roc_exp", "auprc":"auprc_exp"})
+    df_exp_temp = df_exp_75.rename(columns={"Precision":"P_exp", "Recall":"recall_exp", 
+                                         "F1-score":"f1_exp", "Acc":"acc_exp", "AUC":"auc-roc_exp", "AUPRC":"auprc_exp"})
 
     df_all = pd.concat([df_std, df_exp_temp], axis=1)
 
@@ -245,9 +248,18 @@ if __name__ == "__main__":
     # Flatten the axes array for easy iteration
     axes_flat = axes.flatten()
 
-    figure_metrics = ["recall", "f1", "auc-roc", "auprc"]
+    # df_std_models = df_std.loc(axis=0)[:, ['DenseNet','EfficientNet','ResNet50']]
+    # df_exp_models = df_exp.loc(axis=0)[:, ['DenseNet','EfficientNet','ResNet50']]
+    figure_metrics = ["Recall", "F1-score", "AUC", "AUPRC"]
+    # figure_metrics = ["f1", "auc-roc"]    
     for idx, metric in enumerate(figure_metrics):
         axes_flat[idx] = performance_with_without_expl_plot_bars(axes_flat[idx], df_std, df_exp, metric = metric)
+
+        axes_flat[idx].set_ylabel(metric, fontsize=11)
+        # axes_flat[idx].set_xlabel("Backbone", fontsize=12)
+        axes_flat[idx].set_xlabel("")
+        axes_flat[idx].tick_params(axis='both', labelsize = 12)
+
 
         axes_flat[idx].legend_.remove()
 
@@ -259,10 +271,11 @@ if __name__ == "__main__":
         labels,
         loc='upper center',
         ncol=len(labels),
-        bbox_to_anchor=(0.5, 1.02)
+        bbox_to_anchor=(0.5, 1.005),
+        fontsize = 12
     )
 
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig("performance_metrics_"+sys.argv[2]+".png")
     plt.show()
 
@@ -284,8 +297,8 @@ if __name__ == "__main__":
     cbar_ax = fig.add_axes([0.90, 0.15, 0.02, 0.7])
 
 
-    metrics = ['f1', 'auc-roc']
-    titles = ['F1 penalty', 'AUC-ROC penalty']
+    metrics = ['F1-score', 'AUC']
+    titles = ['F1-score penalty', 'AUC penalty']
     for idx_m, metric in enumerate(metrics):
         df_exp_th = [df_exp_25, df_exp_50, df_exp_75]
         thresholds = [0.25, 0.50, 0.75]
@@ -322,7 +335,7 @@ if __name__ == "__main__":
             cbar_ax=cbar_ax if idx_m==0 else None
         )
 
-        axes_flat[idx_m].set_title(titles[idx_m])
+        axes_flat[idx_m].set_title(titles[idx_m], fontsize = 14)
 
 
     plt.tight_layout(rect=[0, 0, 0.88, 1])

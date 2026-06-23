@@ -108,9 +108,9 @@ def create_dictionary_from_results(path_to_metrics, lesion, energy_threshold=0.7
                    "copy_clahe_tophat5x5":"P2", "expand_flip": "A1", "copy_clahe_enhance_AUGM": "A2",
                    "copy_clahe_tophat5x5_AUGM": "A2"}
     
-    x_method_name_tr = {"contribution": "$M_C^{+}$", "attention": "att", "grad_cam_cnn": "GC-cnn", 
-                        "grad_cam_proj": "GC-prj", "grad_cam_att": "GC-att",
-                        "eigen_cam_cnn": "EC-cnn", "eigen_cam_proj": "EC-prj", "eigen_cam_att": "EC-att"}
+    x_method_name_tr = {"contribution": "$M_C^{+}$", "attention": "Att", "grad_cam_cnn": "GC-Bk", 
+                        "grad_cam_proj": "GC-Prj", "grad_cam_att": "GC-Att",
+                        "eigen_cam_cnn": "EC-Bk", "eigen_cam_proj": "EC-Prj", "eigen_cam_att": "EC-Att"}
 
     # print(metrics_files)
     experiments = {"standard": dict(), "explain": dict(), 'XAI': dict()}
@@ -167,11 +167,11 @@ def create_dictionary_from_results(path_to_metrics, lesion, energy_threshold=0.7
                                 x_res = x_res[0]
                             experiments[mtype][exp][model_name][seed][K][x_method_tr][x_metric] = x_res
                 else:
-                    experiments[mtype][exp][model_name][seed][K]["precision"] = pred_results["Precision"]
-                    experiments[mtype][exp][model_name][seed][K]["recall"] = pred_results["Recall"]
-                    experiments[mtype][exp][model_name][seed][K]["f1"] = pred_results["F1 Score"]
-                    experiments[mtype][exp][model_name][seed][K]["acc"] = pred_results["Accuracy"]
-                    experiments[mtype][exp][model_name][seed][K]["auc-roc"] = pred_results["AUC-ROC"]
-                    experiments[mtype][exp][model_name][seed][K]["auprc"] = pred_results["AUPRC"]
+                    experiments[mtype][exp][model_name][seed][K]["Precision"] = pred_results["Precision"]
+                    experiments[mtype][exp][model_name][seed][K]["Recall"] = pred_results["Recall"]
+                    experiments[mtype][exp][model_name][seed][K]["F1-score"] = pred_results["F1 Score"]
+                    experiments[mtype][exp][model_name][seed][K]["Acc"] = pred_results["Accuracy"]
+                    experiments[mtype][exp][model_name][seed][K]["AUC"] = pred_results["AUC-ROC"]
+                    experiments[mtype][exp][model_name][seed][K]["AUPRC"] = pred_results["AUPRC"]
     return experiments
 

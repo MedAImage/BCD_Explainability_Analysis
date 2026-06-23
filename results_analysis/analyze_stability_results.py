@@ -52,12 +52,13 @@ def plot_model_std_heatmap(
         cbar=cbar,
         cbar_ax=cbar_ax
     )
+    if cbar:
+        cbar_ax.tick_params(labelsize=12)
 
     # Etiquetas inferiores: thresholds
-    lower_labels = [str(t) for _m in model_order for t in versions]
-    # ax.set_xticklabels(lower_labels, rotation=0)
-    ax.set_ylabel("Experiment", loc="center")
-    ax.set_xlabel("Metric version")
+    ax.set_ylabel("Data configuration", y=0.4, fontsize=12)
+    ax.set_xlabel("Metric version", fontsize=12)
+    ax.tick_params(axis='both', labelsize = 12)
 
     # Separadores entre bloques de modelos
     n_thr = len(versions)
@@ -68,7 +69,7 @@ def plot_model_std_heatmap(
     y_top = -0.2
     for i, model in enumerate(model_order):
         center = i * n_thr + n_thr / 2
-        ax.text(center, y_top, model, ha='center', va='bottom', fontsize=10)
+        ax.text(center, y_top, model, ha='center', va='bottom', fontsize=12)
 
     # Ajustar l�mites para que se vea el texto superior
     ax.set_ylim(len(full.index), -1.0)
@@ -103,9 +104,9 @@ if __name__ == "__main__":
 
     cbar_ax = fig.add_axes([0.90, 0.15, 0.02, 0.7])
 
-    titles = ['Standard deviation in F1', 'Standard deviation in AUC-ROC']
+    titles = ['Standard deviation in F1-score', 'Standard deviation in AUC']
 
-    for idx, metric in enumerate(['f1', 'auc-roc']):
+    for idx, metric in enumerate(['F1-score', 'AUC']):
 
         plot_model_std_heatmap(
             df_std_metrics,
@@ -121,7 +122,7 @@ if __name__ == "__main__":
             cbar_ax=cbar_ax if idx==0 else None
         )
 
-        axes_flat[idx].set_title(titles[idx])
+        axes_flat[idx].set_title(titles[idx], fontsize=14)
 
 
     plt.tight_layout(rect=[0, 0, 0.88, 1])
@@ -153,19 +154,21 @@ if __name__ == "__main__":
     #     # plt.savefig("fold_seed_distribution_"+model+"_"+metric+"_"+sys.argv[2]+".png")        
     #     plt.show()
 
-    metric = 'f1'
-    titles = ['Distribution of F1 over folds and seeds', 'Distribution of AUC-ROC over folds and seeds']
+    titles = ['Distribution of F1-score across folds and seeds', 'Distribution of AUC across folds and seeds']
 
-    for idx, metric in enumerate(['f1', 'auc-roc']):
+    for idx, metric in enumerate(['F1-score', 'AUC']):
         df_models = df_all.reset_index()
         df_models = df_models[(df_models['Model']=='DenseNet') | (df_models['Model']=='ResNet50')]
         axes = sns.FacetGrid(df_models, row='version', col='Model', height=3, aspect=1)
         axes.map_dataframe(sns.swarmplot,x=metric, y='Experiment', hue='Fold', palette=sns.color_palette())
 
-        axes.set_titles(col_template='{col_name}', row_template='{row_name}')
-        axes.figure.suptitle(titles[idx], fontsize=12)
+        axes.set_titles(col_template='{col_name}', row_template='{row_name}', size=12)
+        axes.figure.suptitle(titles[idx], fontsize=14)
         axes.figure.subplots_adjust(top=0.85)
+        axes.set_axis_labels(metric, "Data configuration", fontsize=12)
 
+        for ax in axes.axes.flat:
+            ax.tick_params(axis='both', labelsize=12)
 
         plt.tight_layout()
         plt.savefig("fold_seed_distribution_all"+"_"+metric+"_"+sys.argv[2]+".png")        

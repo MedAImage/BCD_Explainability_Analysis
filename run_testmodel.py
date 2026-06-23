@@ -1,0 +1,74 @@
+import subprocess
+import re
+import argparse
+import os
+
+parser = argparse.ArgumentParser()
+# parser.add_argument("--json_suffix", type=str, default=None,
+#                     help="Suffix to append to metrics jsonl filename")
+parser.add_argument("--models_path", type=str, default=None,
+                    help="Path to the models directory")
+# parser.add_argument("--testset", type=str, default=None,
+#                     help="Test set json file")
+parser.add_argument("--positive_class", type=str, default=None,
+                    help="Name of the positive class")
+
+
+
+args = parser.parse_args()
+
+models_path = args.models_path
+
+models = os.listdir(models_path)
+models.sort()
+
+positive_class = args.positive_class
+
+# testset = args.testset
+
+for modelfile in models:
+
+    model_fields = modelfile.split('.pth')[0].split('_')
+    model_name = model_fields[0]
+    seed = model_fields[2]
+    suffix = '_'.join(model_fields[3:-1])
+    K = model_fields[-1]
+    # Bias = model_fields[-1]
+    print(modelfile)
+    print(model_fields)
+    print(suffix)
+    print(K)
+    # print('Bias', Bias)
+    # print('----')
+
+    testset = f'json_splits/{positive_class}/76014/{K}/joined_dataset_test_{positive_class}_76014.json'
+
+    augment_config = "augment_transform_"+suffix+".yaml"
+    if suffix!='copy_copy_copy':
+        print('Skipping', modelfile)
+        continue
+
+    model_weights_path = os.path.join(models_path, modelfile)
+
+    cmd = [
+            "python3", "get_model_metrics_final.py",
+            "--testset", testset,
+            "--seed", seed, ###
+            "--model", model_name, ###
+            "--model_weights_path", model_weights_path,
+            "--dataroot", "/home/dataset/DPCM_IA",
+            "--positive_classes", positive_class,
+            "--metrics_run_path", "XAI_final_metrics",
+            "--augmentation_config_path", augment_config,
+            "--json_suffix", "_"+positive_class+"_"+suffix+"_"+K#+"_"+Bias
+        ]
+
+    print(f"Running: {' '.join(cmd)}\n")
+                
+    process = subprocess.run(
+                cmd, 
+                stderr=subprocess.STDOUT, 
+                text=True, 
+                check=True
+            )
+                

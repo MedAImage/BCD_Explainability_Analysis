@@ -22,13 +22,13 @@ import copy
 import torch.nn.functional as F
 from scipy.stats import pearsonr, spearmanr, kendalltau, weightedtau
 from pytorch_grad_cam import GradCAMPlusPlus, EigenCAM
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam.utils.model_targets import BinaryClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from torchvision.ops import box_iou
 from utils.utils import pos_weight_samples
 from collections import Counter
 from tqdm import tqdm
-WIMG = 800
+WIMG = 709
 HIMG = 800
 SHOW_IMAGES = True
 PR_TH = 0.5
@@ -120,7 +120,7 @@ def get_gradCam_map(cam_model, types, target_layers, inputs):
         for i, layer in enumerate(target_layers):
             cam_ctx = GradCAMPlusPlus(model=cam_model, target_layers=[layer])
             with cam_ctx as cam:
-                grayscale_cam = cam(input_tensor=inputs, targets=[ClassifierOutputTarget(0)])[0]
+                grayscale_cam = cam(input_tensor=inputs, targets=[BinaryClassifierOutputTarget(1)])[0]
                 gradcam_maps.append(grayscale_cam)
 
     return gradcam_maps
@@ -132,7 +132,7 @@ def get_eigenCam_map(cam_model, types, target_layers, inputs):
         for i, layer in enumerate(target_layers):
             cam_ctx = EigenCAM(model=cam_model, target_layers=[layer])
             with cam_ctx as cam:
-                grayscale_cam = cam(input_tensor=inputs, targets=[ClassifierOutputTarget(0)])[0]
+                grayscale_cam = cam(input_tensor=inputs, targets=[BinaryClassifierOutputTarget(1)])[0]
                 eigencam_maps.append(grayscale_cam)
 
     return eigencam_maps
@@ -143,9 +143,7 @@ def show_combined_images(img1, img2, title):
     concat_img = cv2.resize(concat_img, (800, 400))
     cv2.imshow(title, concat_img)
     k = cv2.waitKey(0)
-    if k == 27:  
-        cv2.destroyAllWindows()
-        return True
+    return k
                 
 
 def cuantitative_metrics_report(all_labels, all_predictions, bestLoss, loadedseed, bestmodel, json_suffix, save_completeMetrics_path, Bias):
@@ -535,10 +533,16 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     stop_showing = False
     fp_names = []
     test_loss = 0.0
+    
+
+    images_to_save = ["0a3018e7ad1d1d7d2e142c2ca7c518fa_L_CC.png"]
     with torch.no_grad():
-        for inputs, rois,types, labels, img_name in test_data_loader:
-           
+        for inputs, rois, types, labels, img_name in test_data_loader:
+            if len(rois[0][positive_classes[0]])<1:
+                continue
             img_name = str(img_name[0])
+            # if img_name not in images_to_save:
+            #     continue
             # print(f"\n----------Metrics score for image : {img_name}----------", flush=True)
             inputs, labels = inputs.to(device), labels.to(device)
             types = types.to(device)
@@ -560,7 +564,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                 cvimg = torch.permute(torch.tensor(img), (1, 2, 0))
                 cvimg = np.array((cvimg)*255).astype(np.uint8)
                 img_size = cvimg.shape
-                cvimg_orig = cv2.resize(cvimg[:,:,0], (HIMG, WIMG))
+                cvimg_orig = cv2.resize(cvimg[:,:,0], (WIMG, HIMG))
                 cvimg = cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR)
                 cvimg = draw_rois(cvimg, batch_rois, img_size, positive_classes)
                 cvimg = cv2.putText(cvimg, pr_text, (50,50), font, 1, (0,255,0), 2)
@@ -644,9 +648,10 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                     # gt_map = cv2.resize(gt_map, (400, 400))
                     # cv2.imshow('GT', gt_map.astype(np.uint8))
                     maps_to_show = ['contribution', 'eigen_cam_cnn']
+                    maps_to_save = ['contribution', 'attention', 'grad_cam_cnn', 'eigen_cam_cnn']
                     vis_maps = []
-                    # clean_maps = []
-                    for im, mtype in enumerate(maps_to_show):
+                    clean_maps = []
+                    for im, mtype in enumerate(maps_to_save):
                         gray_map = map_results[mtype]['gray_map']
                         if gray_map.shape[:2] != base.shape[:2]:
                             gray_map = cv2.resize(gray_map, (base.shape[1], base.shape[0]))
@@ -654,20 +659,25 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                         text = pr_text
                         if im>0:
                             text = wpr_text
-                        heatmap = show_cam_on_image(base, gray_map/255, use_rgb=False)      
-                        # clean_maps.append(heatmap.copy())
-                        heatmap = draw_rois(heatmap, batch_rois, img_size, positive_classes)    
-                        heatmap = cv2.putText(heatmap, text, (50,50), font, 1, (0,255,0), 2)                        
-                        vis_maps.append(heatmap)
-                        
+                        heatmap = show_cam_on_image(base, gray_map/255, use_rgb=False, image_weight=0.7)      
+                        clean_maps.append(heatmap.copy())
+                        if mtype in maps_to_show:
+                            heatmap = draw_rois(heatmap, batch_rois, img_size, positive_classes)    
+                            heatmap = cv2.putText(heatmap, text, (50,50), font, 1, (0,255,0), 2)                        
+                            vis_maps.append(heatmap)
+                       
                     
-                    stop_showing = show_combined_images(vis_maps[0], vis_maps[1], title)
-                    if stop_showing:
-                        # cv2.imwrite('input.png', cvimg_orig)
-                        # names = ["contribution.png", "attention.png"]
-                        # for map_to_save, f_path in zip(clean_maps, names):
-                        #     cv2.imwrite(f_path, map_to_save)
-                        break
+                    prefix = ""
+                    k = show_combined_images(vis_maps[0], vis_maps[1], title)
+                    if k==115: # 's'
+                        cvimg_orig = draw_rois(cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR), batch_rois, img_size, positive_classes)                            
+                        cv2.imwrite('./images_against_posthoc/'+'input_'+prefix+"_"+img_name+'.png', cvimg_orig)
+                        names = ['./images_against_posthoc/'+mname+"_"+prefix+"_"+img_name+".png"for mname in maps_to_save]
+                        for map_to_save, f_path in zip(clean_maps, names):
+                            cv2.imwrite(f_path, map_to_save)
+                    elif k == 27:  # Esc
+                        cv2.destroyAllWindows()
+                        exit()
 
 
             all_labels.append(label[0])
@@ -771,5 +781,5 @@ if __name__ == "__main__":
     inchannels = 3 if (isinstance(channels_list, list) and len(channels_list) == 3) else 1
     print(f"[test] in_channels = {inchannels}")
 
-    get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, dataroot=args.dataroot, transformsConfig=transformsConfig,inChannels =inchannels, save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, show_image = False, limit = 10000)
+    get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, dataroot=args.dataroot, transformsConfig=transformsConfig,inChannels =inchannels, save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, show_image = True, limit = 10000)
 
