@@ -190,12 +190,12 @@ class CustomResNetBinary(nn.Module):
         x: [B, 3, H, W] 
         """
         feat = self.base_model(x)
-        logit, map_att, map_contrib, _ = self.head(feat)
-        return logit, map_att, map_contrib
+        logit, map_att, map_imp, _ = self.head(feat)
+        return logit, map_att, map_imp
 
 
 class CustomResNetBinary50(nn.Module):
-    def __init__(self, num_classes, in_channels=3, head: Literal['lse','attn']='attn', k: int = 5,
+    def __init__(self, num_classes, in_channels=3, head: Literal['attn']='attn',
                 proj_dim: int = 512, attn_hidden: int = 256, Bias=None):
         super().__init__()
         net = models.resnet50(weights=models.ResNet50_Weights.IMAGENET1K_V2)
@@ -212,15 +212,15 @@ class CustomResNetBinary50(nn.Module):
         x: [B, 3, H, W] 
         """
         feat = self.base_model(x)                # [B,2048,H/32,W/32]
-        logit, map_att, map_imp, map_no_bias = self.head(feat)          # [B,1], [B,1,H',W']
+        logit, map_att, map_imp,_ = self.head(feat)          # [B,1], [B,1,H',W']
         # prob = torch.sigmoid(logit)
         # key = 'logit_map' if self.head_name=='lse' else 'attn_map'
-        return logit, map_att, map_imp, map_no_bias #Cambiar map_imp por map_contrib y quitar el map_no_bias
+        return logit, map_att, map_imp
 
 
 
 class CustomDenseNet(nn.Module):
-    def __init__(self, num_classes, in_channels=3, head: Literal['lse','attn']='attn', k: int = 5,
+    def __init__(self, num_classes, in_channels=3, head: Literal['attn']='attn', k: int = 5,
                 proj_dim: int = 512, attn_hidden: int = 256):
         super().__init__()
         net = models.densenet121(weights=models.DenseNet121_Weights.IMAGENET1K_V1)
@@ -236,10 +236,9 @@ class CustomDenseNet(nn.Module):
 
     def forward(self, x, xtype):
         features = self.base_model(x)
-
         feat_map = F.relu(features)
-        logit, map_att, map_imp, map_no_bias = self.head(feat_map)
-        return logit, map_att, map_imp, map_no_bias
+        logit, map_att, map_imp, _ = self.head(feat_map)
+        return logit, map_att, map_imp
 
 
 class CustomMobileNetV3(nn.Module):
@@ -260,8 +259,8 @@ class CustomMobileNetV3(nn.Module):
     def forward(self, x, xtype):
         feat_map = self.base_model(x)
 
-        logit, map_att, map_imp, map_no_bias = self.head(feat_map)
-        return logit, map_att, map_imp, map_no_bias
+        logit, map_att, map_imp, _ = self.head(feat_map)
+        return logit, map_att, map_imp
 
 
 class EfficientNetB0(nn.Module):
@@ -284,5 +283,5 @@ class EfficientNetB0(nn.Module):
         feat_map = self.base_model(x)
 
         # logit, map_ = self.head(feat_map, xtype)
-        logit, map_att, map_imp, map_no_bias = self.head(feat_map)
-        return logit, map_att, map_imp, map_no_bias
+        logit, map_att, map_imp, _ = self.head(feat_map)
+        return logit, map_att, map_imp
