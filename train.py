@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, Subset
 from sklearn.model_selection import train_test_split
 from torchvision import transforms
-from models.base_models_importance import  EfficientNetB0, CustomResNetBinary,  CustomResNetBinary34, CustomResNetBinary50,  VGG16, CustomDenseNet, CustomMobileNetV3
+from models.base_models_final import  EfficientNetB0, CustomResNetBinary,  CustomResNetBinary50,  CustomDenseNet, CustomMobileNetV3
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix
 import matplotlib.pyplot as plt
@@ -18,7 +18,7 @@ from tqdm import tqdm
 import random
 from get_model_metrics import get_model_metrics
 import hashlib
-from utils.utils import pos_weight_samples
+from utils.pos_weight_samples import pos_weight_samples
 
 probability_threshold = 0.5
 def parse_args(parser):
@@ -118,7 +118,7 @@ def train(epoch = 0):
         types = types.to(device)
         #RESETTING GRADIANTS
         optimizer.zero_grad()
-        outputs, _, _, _ = model(inputs, types) #ignore maps
+        outputs, _, _ = model(inputs, types) #ignore maps
         # outpushash = batch_hash(outputs[0])
         # print(f"Hash del primer batch de outputs: {outpushash}")
         loss = criterion_loss(outputs, labels)
@@ -141,7 +141,7 @@ def validation (epoch = 0):
         for inputs, _,types, labels, _ in val_data_loader:
             inputs,labels = inputs.to(device), labels.to(device)
             types = types.to(device)
-            outputs, _, _, _ = model(inputs, types) #ignore maps
+            outputs, _, _= model(inputs, types) #ignore maps
             probabilities = torch.sigmoid(outputs)
             loss = criterion_loss(outputs, labels)
             val_loss += loss.item() * inputs.size(0)
