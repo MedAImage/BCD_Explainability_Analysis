@@ -1,6 +1,10 @@
 import subprocess
 import re
 import argparse
+import os
+
+PROJECT_DIRPATH = os.path.dirname(os.path.abspath(__file__))
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--positive_class", type=str, required=True,
@@ -10,20 +14,20 @@ parser.add_argument("--device", type=str, required=True,
 args = parser.parse_args()
 
 models = [
-    "CustomDenseNet",
-    "CustomResNetBinary",
-    "CustomResNetBinary50",
-    "EfficientNetB0",
+    # "CustomDenseNet",
+    # "CustomResNetBinary",
+    # "CustomResNetBinary50",
+    # "EfficientNetB0",
     "CustomMobileNetV3"
 ]
 
 
 seeds = [
     17143,
-    67291,    
-    88078,
-    51,
-    666
+    # 67291,    
+    #88078,
+    #51,
+    #666
 ]
 
 
@@ -52,10 +56,11 @@ positive_class = args.positive_class
 #                     "expand_flip",
 #                     "copy_clahe_tophat_AUGM"]
 if positive_class=="Microcalcificaciones":
-    augment_files = ["augment_transform_copy_clahe_tophat5x5.yaml",
-                     "augment_transform_copy_clahe_tophat5x5_AUGM.yaml"]
-    json_suffix = [ "copy_clahe_tophat5x5",
-                    "copy_clahe_tophat5x5_AUGM"]
+    augment_files = ["augment_transform_copy_clahe_topHat.yaml",
+                    "augment_transform_copy_clahe_topHat5x5.yaml"]
+    json_suffix = [ "copy_clahe_topHat",
+                    "copy_clahe_topHat5x5"]
+    
     
 else:
     print("Wrong positive class", positive_class)
@@ -69,9 +74,9 @@ for seed in seeds:
     for i in range(5):
         k = 'K'+str(i+1)
 
-        trainset = f'json_splits/{positive_class}/76014/{k}/joined_dataset_training_{positive_class}_76014.json'
-        valset = f'json_splits/{positive_class}/76014/{k}/joined_dataset_validation_{positive_class}_76014.json'
-        testset = f'json_splits/{positive_class}/76014/{k}/joined_dataset_test_{positive_class}_76014.json'
+        trainset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_training_{positive_class}_76014.json'
+        valset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_validation_{positive_class}_76014.json'
+        testset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_test_{positive_class}_76014.json'
 
 
         match = re.search(r'_(\d+)\.json$', trainset)
@@ -83,17 +88,17 @@ for seed in seeds:
             for suffix, augm_file in zip(json_suffix, augment_files):
                 cmd = [
                     "python3", "train.py",
-                    "--number_of_epochs", "100",
-                    "--patience", "10",
+                    "--number_of_epochs", "10",
+                    "--patience", "1",
                     "--model", model,
-                    "--batch_size", "32",
+                    "--batch_size", "8",
                     "--seed", str(seed),
                     "--seed_split", str(seed_split),
                     "--trainset", trainset,
                     "--valset", valset,
                     "--testset", testset,
                     "--positive_classes", positive_class,
-                    "--dataroot", "/home/dataset/DPCM_IA",
+                    "--dataroot", PROJECT_DIRPATH,#CHECK THIS TO MAKE IT UNIVERSAL
                     "--augmentation_config_path", augm_file,
                     "--device", device
                 ]

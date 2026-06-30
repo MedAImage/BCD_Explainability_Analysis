@@ -3,6 +3,9 @@ import re
 import argparse
 import os
 
+PROJECT_DIRPATH = os.path.dirname(os.path.abspath(__file__))
+
+
 parser = argparse.ArgumentParser()
 # parser.add_argument("--json_suffix", type=str, default=None,
 #                     help="Suffix to append to metrics jsonl filename")
@@ -41,22 +44,22 @@ for modelfile in models:
     # print('Bias', Bias)
     # print('----')
 
-    testset = f'json_splits/{positive_class}/76014/{K}/joined_dataset_test_{positive_class}_76014.json'
+    testset = f'data_organization/json_splits/{positive_class}/76014/{K}/joined_dataset_test_{positive_class}_76014.json'
 
     augment_config = "augment_transform_"+suffix+".yaml"
-    if suffix!='copy_copy_copy':
-        print('Skipping', modelfile)
-        continue
+    # if suffix!='copy_copy_copy':
+    #     print('Skipping', modelfile)
+    #     continue
 
     model_weights_path = os.path.join(models_path, modelfile)
 
     cmd = [
-            "python3", "get_model_metrics_final.py",
+            "python3", "get_model_metrics.py",
             "--testset", testset,
             "--seed", seed, ###
             "--model", model_name, ###
             "--model_weights_path", model_weights_path,
-            "--dataroot", "/home/dataset/DPCM_IA",
+            "--dataroot", PROJECT_DIRPATH,
             "--positive_classes", positive_class,
             "--metrics_run_path", "XAI_final_metrics",
             "--augmentation_config_path", augment_config,
