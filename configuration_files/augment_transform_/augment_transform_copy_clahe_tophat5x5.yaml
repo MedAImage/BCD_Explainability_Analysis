@@ -1,0 +1,28 @@
+# transformations:
+#  - Copy
+#  - Copy
+  # - Binarize_100_125
+  # - Binarize_125_150
+  # - Binarize_150_175
+  # - Binarize_175_200
+  # - Binarize_200_225
+  # - Binarize_225_256    
+#  - Clahe
+#  - TopHat
+#  - Gabor
+#  - Binary
+
+channels:
+  - {Copy: 100}
+  - {Clahe: 100}
+  - {TopHat5x5: 100}
+
+#  - {Copy: 100}
+#  - {Clahe: 100}
+#  - {EnhanceUniform: 100}
+
+flipped: False
+expanded: False
+expanded_cropped : False
+expand_factors_cropped: [1.25, 0.8]
+testDebug: True
