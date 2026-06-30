@@ -1,5 +1,9 @@
 import os
 import json
+import sys
+abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if abs_path not in sys.path:
+    sys.path.append(abs_path)
 from PIL import Image
 import torch
 from torch.utils.data import Dataset
@@ -152,7 +156,7 @@ def rescale_image_and_rois(image, scaled_rois):
 
 ################## BASIC IMPLEMENTATION FOR CUSTOM DATASET FOR DICOMS ################## 
 class dicomDataset(Dataset):
-    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 100000, shuffleTrain = False, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
+    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 100, shuffleTrain = False, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
         
         # fix_seed(seed)
         self.dataPath = dataPath

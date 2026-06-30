@@ -1,5 +1,8 @@
 import os
 import sys
+abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if abs_path not in sys.path:
+    sys.path.append(abs_path)
 import copy
 import shutil
 import json
@@ -7,6 +10,9 @@ from dataset import ALL_CLASSES
 import pydicom
 import numpy as np
 import cv2
+
+
+from data_organization.dicom2png import dicom_to_png
 
 if(len(sys.argv)!=3):
     print('Please, specify the path to the dataset and the output path for the joined data')
@@ -37,29 +43,12 @@ for root, dirs, files in os.walk(sys.argv[1]):
             for img in img_files:
                 if not img in joined_dataset.keys():
                     orig_img_path = os.path.join(patient_path, img)
-                    new_img_path = os.path.join(output_path, img)
-                    #Added some security checks
-                    try:
-                        dicom = pydicom.dcmread(orig_img_path)
-                    except Exception as e:
-                        print(f"Error al leer {orig_img_path}: {e}")
-                        continue
-
-                    array = dicom.pixel_array.astype(np.float32)
-                    
-                    min_val = np.min(array)
-                    max_val = np.max(array)
-
-                    image = (((array - min_val)* 65535) / (max_val - min_val)).astype(np.uint16)
-
-                    try:
-                        if(dicom[0x2050,0x0020]).value == 'INVERSE':
-                            image = 65535 - image
-                    except KeyError:
-                        pass
-                    
                     outputFile = os.path.join(output_path, os.path.basename(orig_img_path).replace('.dcm', '.png'))
-                    cv2.imwrite(outputFile, image)    
+                    try:
+                        dicom_to_png(orig_img_path, outputFile)
+                    except Exception as e:
+                        print(f"Reading/Conversion error for image {orig_img_path}: {e}")
+                        continue  
 
                     new_data = {'image': outputFile, 'label':copy.deepcopy(CLASSES)}
                     joined_dataset[img] = new_data
