@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from utils import create_dictionary_from_results, dict_to_df_fold_seed_metric
+from results_analysis import create_dictionary_from_results, dict_to_df_fold_seed_metric
 
 def plot_model_std_heatmap(
     df,
