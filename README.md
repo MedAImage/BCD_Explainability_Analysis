@@ -8,7 +8,14 @@ This project leverages these XAI methods alongside traditional quantitative metr
 
 This repository contains all the necessary code and examples to work with the two selected public breast lesion datasets, as well as an implementation of various models to run and generate sample visualizations for the model evaluation.
 
-Data and results can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc)
+Example results and jsons files can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc)
+
+To download the original data we encourage to contact the original sources:
+* For VinDr-Mammo you can access to data from here: https://physionet.org/content/vindr-mammo/1.0.0/
+* For InBreast dataset we suggest to contact the original authors because the original source is not currently available.
+
+This repository has explanations and tools to go from original source material to the formatted dataset ready to perform the experiments, any doubt, question or suggestion please, contact us to the final emails at the end of this readme.
+
 
 ## 1. Dataset and Format
 
