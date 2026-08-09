@@ -8,7 +8,6 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 from PIL import Image, ImageOps 
-import pydicom
 from torchvision import transforms
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, roc_auc_score
 import matplotlib.pyplot as plt

@@ -1,18 +1,11 @@
 
 import torch
 import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader, Subset
-from sklearn.model_selection import train_test_split
-from torchvision import transforms
-from torchvision import models
+from torch.utils.data import DataLoader
 import cv2
-import sys
 import numpy as np
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, precision_recall_curve, auc, roc_auc_score
-import matplotlib.pyplot as plt
-import seaborn as sns
+from sklearn.metrics import precision_recall_curve, auc
 from dataset_load.dataset import dicomDataset, normal_transform, calculate_metrics, confusion_Matrix, print_dataset, collate_pad_to32
-import random
 from models.base_models_final import  EfficientNetB0, CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, CustomMobileNetV3
 import argparse
 import os
@@ -21,7 +14,9 @@ import yaml
 import copy
 import torch.nn.functional as F
 from scipy.stats import pearsonr, spearmanr, kendalltau, weightedtau
-from pytorch_grad_cam import GradCAMPlusPlus, EigenCAM
+import sys
+sys.path.append('./pytorch-grad-cam')
+from pytorch_grad_cam import GradCAMPlusPlus, EigenCAM, ShapleyCAM
 from pytorch_grad_cam.utils.model_targets import BinaryClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from torchvision.ops import box_iou
@@ -137,10 +132,24 @@ def get_eigenCam_map(cam_model, types, target_layers, inputs):
 
     return eigencam_maps
 
+def get_shapleyCam_map(cam_model, types, target_layers, inputs):
+    with torch.enable_grad():
+        cam_model.set_types(types)
+        shapleycam_maps = []
+        for i, layer in enumerate(target_layers):
+            cam_ctx = ShapleyCAM(model=cam_model, target_layers=[layer])
+            with cam_ctx as cam:
+                grayscale_cam = cam(input_tensor=inputs, targets=[BinaryClassifierOutputTarget(1)])[0]
+                shapleycam_maps.append(grayscale_cam)
 
-def show_combined_images(img1, img2, title):
-    concat_img = np.concatenate((img1, img2), axis = 1)
-    concat_img = cv2.resize(concat_img, (800, 400))
+    return shapleycam_maps
+
+def show_combined_images(images, title):
+    concat_img = np.zeros((800,800,3), dtype=np.uint8)
+    for i, img in enumerate(images):
+        res_img = cv2.resize(img, (400, 400))
+        r,c = i//2, i%2
+        concat_img[r*400: (r+1)*400, c*400: (c+1)*400] = res_img
     cv2.imshow(title, concat_img)
     k = cv2.waitKey(0)
     return k
@@ -471,25 +480,21 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     state_dict = torch.load(bestModelPth, map_location = device)
     model.load_state_dict(state_dict)
     model = model.to(device) 
-    # print(model)
 
     cam_model = CamWrapperAdapter(model).to(device)
 
     normal_data = normal_transform()
-    #GETTING WHOLE DATASET
-    print(f"[DEBUG] test_model.py | dataroot: {dataroot}")
-    print(f"[DEBUG] test_model.py | testDataset: {testDataset}")
+
     DatasetDicom = dicomDataset(dataPath = testDataset ,positive_classes = positive_classes, transform_with_class = normal_data, transforms_config=transformsConfig, testDebug=testDebugging ,dataroot=dataroot, limit=limit)
 
-    #MAKING THE STRATIFICATION
     test_dataset = DatasetDicom
     test_labels = np.array(test_dataset.labels)
     print(f"Test Dataset Size: {len(test_dataset)}")
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4, collate_fn = collate_test)
 
-    #  ##CONFIGURATION MODE FOR THE MODEL
     pos_weights = pos_weight_samples(test_labels, device)
     criterion_loss = nn.BCEWithLogitsLoss(reduction='mean', pos_weight = pos_weights)
+
     #INFERENCE  
     model.eval()
     all_labels = []
@@ -506,9 +511,10 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     map_results = {}
     map_types = ['contribution', 'attention', 
                  'grad_cam_cnn', 'grad_cam_proj', 'grad_cam_att',
-                 'eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att']
+                 'eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att',
+                 'shapley_cam_cnn', 'shapley_cam_proj', 'shapley_cam_att']
 
-    # map_types = ['contribution', 'attention', "contrib_no_bias"]
+
 
     energy = {}
     for th in LContrib_Th:
@@ -567,56 +573,49 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                 base = np.stack([base, base, base], axis=-1)
 
 
-                # cv_imp_map = np.array(torch.permute(imp_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach())
                 cv_imp_map = torch.permute(imp_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach().numpy()
-                # print("Total contribution with bias", cv_imp_map.sum())
-                # cv_imp_map_norm, grayscale_imp_map = normalize_map(np.maximum(0, cv_imp_map))
                 cv_imp_map_norm, grayscale_imp_map = normalize_map(cv_imp_map)
                 map_results['contribution']['map'] = cv_imp_map
                 map_results['contribution']['norm_map'] = cv_imp_map_norm
                 map_results['contribution']['gray_map'] = grayscale_imp_map
                 
-                # cv_att_map = np.array(torch.permute(att_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach())
                 cv_att_map = torch.permute(att_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach().numpy()
                 cv_att_map_norm, grayscale_att_map = normalize_map(cv_att_map)
                 map_results['attention']['map'] = cv_att_map
                 map_results['attention']['norm_map'] = cv_att_map_norm
                 map_results['attention']['gray_map'] = grayscale_att_map
                 
-                # cv_contrib_no_bias_map = np.array(torch.permute(no_bias_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach())
-                # cv_contrib_no_bias_map = torch.permute(no_bias_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach().numpy()
-
-                # print("Total contribution without bias", cv_contrib_no_bias_map.sum())
-                # cv_contrib_no_bias_map_norm, grayscale_contrib_no_bias_map = normalize_map(np.maximum(0, cv_contrib_no_bias_map))
-                # cv_contrib_no_bias_map_norm, grayscale_contrib_no_bias_map = normalize_map(cv_contrib_no_bias_map)                
-                # map_results['contrib_no_bias']['map'] = cv_contrib_no_bias_map                
-                # map_results['contrib_no_bias']['norm_map'] = cv_contrib_no_bias_map_norm
-                # map_results['contrib_no_bias']['gray_map'] = grayscale_contrib_no_bias_map
-
-
 
                 # results from EIGEN-CAM
                 eigen_cam_types = ['eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att']
-                att_maps_eigencam = get_eigenCam_map(cam_model, types, target_layer, inputs)
+                sal_maps_eigencam = get_eigenCam_map(cam_model, types, target_layer, inputs)
                 for imap, tmap in enumerate(eigen_cam_types):
-                    norm_map, gray_map = normalize_map(att_maps_eigencam[imap])
-                    map_results[tmap]['map'] = att_maps_eigencam[imap]
+                    norm_map, gray_map = normalize_map(sal_maps_eigencam[imap])
+                    map_results[tmap]['map'] = sal_maps_eigencam[imap]
                     map_results[tmap]['norm_map'] = norm_map
                     map_results[tmap]['gray_map'] = gray_map
 
 
-                # results from GRAD-CAM
+                # results from GRAD-CAM++
                 grad_cam_types = ['grad_cam_cnn', 'grad_cam_proj', 'grad_cam_att']
-                att_maps_gradcam = get_gradCam_map(cam_model, types, target_layer, inputs)
+                sal_maps_gradcam = get_gradCam_map(cam_model, types, target_layer, inputs)
                 for imap, tmap in enumerate(grad_cam_types):
-                    norm_map, gray_map = normalize_map(att_maps_gradcam[imap])
-                    map_results[tmap]['map'] = att_maps_gradcam[imap]
+                    norm_map, gray_map = normalize_map(sal_maps_gradcam[imap])
+                    map_results[tmap]['map'] = sal_maps_gradcam[imap]
                     map_results[tmap]['norm_map'] = norm_map
                     map_results[tmap]['gray_map'] = gray_map
-                    
-                # topK_points = dict()
+
+                # results from SHAPLEY-CAM
+                shapley_cam_types = ['shapley_cam_cnn', 'shapley_cam_proj', 'shapley_cam_att']
+                sal_maps_shapleycam = get_shapleyCam_map(cam_model, types, target_layer, inputs)
+                for imap, tmap in enumerate(shapley_cam_types):
+                    norm_map, gray_map = normalize_map(sal_maps_shapleycam[imap])
+                    map_results[tmap]['map'] = sal_maps_shapleycam[imap]
+                    map_results[tmap]['norm_map'] = norm_map
+                    map_results[tmap]['gray_map'] = gray_map
+
+
                 for mtype in map_types:
-                    # print(mtype)
                     map_mass = get_map_mass(map_results[mtype]['map'], K = 5)
                     map_results[mtype]['map_mass'].append(map_mass)                            
 
@@ -630,24 +629,12 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                             map_results[mtype]['energy'][th].append(get_attention_weight(resized_map, ground_truth_mask, th_zero=th))
                         map_results[mtype]['PG_1-top'].append(pointing_game_topK(resized_map, batch_rois[positive_classes[0]], img_size, K = 1))                            
                         map_results[mtype]['PG_5-top'].append(pointing_game_topK(resized_map, batch_rois[positive_classes[0]], img_size, K = 5))
-                        # resized_orig_map = cv2.resize(map_results[mtype]['map'], (img_size[1], img_size[0]))                    
-                        # map_results[mtype]['raw_energy'].append(get_attention_weight(resized_orig_map, ground_truth_mask, th_zero=0, normalize=False))
                     for th in LContrib_Th:
                         contrib_weights[th] = map_results['contribution']['energy'][th][-1]
-            
-                # print("logits - bias - no bias", logits[0], map_results["contribution"]['topk_mass'][-1], map_results["contrib_no_bias"]["topk_mass"][-1],
-                #       map_results["contribution"]['topk_mass'][-1]-map_results["contrib_no_bias"]["topk_mass"][-1])                    
                 if show_image:
                     wpr_text = str(int(prob[0]*contrib_weights[0.5]*100)) + '%'
-                    # print(contrib_weights)
-                    # print(prob[0], contrib_weights[0.5], wpr_text)
-                    # gt_map = ground_truth_mask*255
-                    # gt_map = cv2.cvtColor(gt_map, cv2.COLOR_GRAY2BGR)
-                    # gt_map = draw_rois(gt_map, batch_rois, img_size, positive_classes)    
-                    # gt_map = cv2.resize(gt_map, (400, 400))
-                    # cv2.imshow('GT', gt_map.astype(np.uint8))
-                    maps_to_show = ['contribution', 'eigen_cam_cnn']
-                    maps_to_save = ['contribution', 'attention', 'grad_cam_cnn', 'eigen_cam_cnn']
+                    maps_to_show = ['contribution', 'eigen_cam_cnn', 'grad_cam_cnn', 'shapley_cam_cnn']
+                    maps_to_save = ['contribution', 'attention', 'grad_cam_cnn', 'eigen_cam_cnn', 'shapley_cam_cnn']
                     vis_maps = []
                     clean_maps = []
                     for im, mtype in enumerate(maps_to_save):
@@ -667,7 +654,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                        
                     
                     prefix = ""
-                    k = show_combined_images(vis_maps[0], vis_maps[1], title)
+                    k = show_combined_images(vis_maps, title)
                     if k==115: # 's'
                         cvimg_orig = draw_rois(cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR), batch_rois, img_size, positive_classes)                            
                         cv2.imwrite('./images_against_posthoc/'+'input_'+prefix+"_"+img_name+'.png', cvimg_orig)
@@ -703,8 +690,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
         for filename in fp_names:
             f.write(f"{filename}\n")
     print(f"False positive images list saved in: {outputFile}")
-
-    
+   
     
     #### CUANTITATIVE METRICS REPORT ####
     
@@ -758,7 +744,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MedImage binary classification test")
     parser.add_argument('--testset', type=str, required=True, help='Test set')
     parser.add_argument("--seed", type=int, default=51, help="Torch seed")
-    parser.add_argument("--model", type=str, default="CustomResNetBinary34", help="Selection of the model to train")
+    parser.add_argument("--model", type=str, default="CustomResNetBinary50", help="Selection of the model to train")
     parser.add_argument("--model_weights_path", type=str, default="/bestModels", help="Path to the model weights")
     parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
     parser.add_argument("--positive_classes", type=str, nargs='+', help='List of positive classes (Nodulo, Calc_tip_benig)')
