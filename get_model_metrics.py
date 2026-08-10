@@ -744,7 +744,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MedImage binary classification test")
     parser.add_argument('--testset', type=str, required=True, help='Test set')
     parser.add_argument("--seed", type=int, default=51, help="Torch seed")
+<<<<<<< Updated upstream
     parser.add_argument("--model", type=str, default="CustomResNetBinary50", help="Selection of the model to train")
+=======
+    parser.add_argument("--model", type=str, default="CustomResNetBinary", help="Selection of the model to train")
+>>>>>>> Stashed changes
     parser.add_argument("--model_weights_path", type=str, default="/bestModels", help="Path to the model weights")
     parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
     parser.add_argument("--positive_classes", type=str, nargs='+', help='List of positive classes (Nodulo, Calc_tip_benig)')

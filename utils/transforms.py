@@ -121,5 +121,5 @@ def resize_width_and_rois(image, labels, factor, interpolation=None):
         new_labels = _adjust_list(labels)
     else:
         new_labels = labels
-
+ 
     return new_image, new_labels

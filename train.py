@@ -223,9 +223,6 @@ if __name__=="__main__":
     if args.model == "CustomResNetBinary":
         model = CustomResNetBinary(num_classes=NUM_CLASSES, in_channels=inchannels)
         # w1 = model.base_model.conv1.weight
-    elif args.model == "CustomResNetBinary34":
-        model = CustomResNetBinary34(num_classes=NUM_CLASSES, in_channels=inchannels)
-        w1 = model.base_model.conv1.weight
     elif args.model == "CustomResNetBinary50":
         model = CustomResNetBinary50(num_classes=NUM_CLASSES, in_channels=inchannels, Bias=bias)
         # w1 = model.base_model.conv1.weight
@@ -235,9 +232,6 @@ if __name__=="__main__":
     elif args.model == "CustomDenseNet":
         model = CustomDenseNet(num_classes=NUM_CLASSES, in_channels=inchannels)
         # w1 = model.densenet.features[0].weight
-    elif args.model == "VGG16":
-        model = VGG16(num_classes=NUM_CLASSES, in_channels=inchannels)
-        # w1 = model.features[0].weight
     elif args.model == "CustomMobileNetV3":
         model = CustomMobileNetV3(num_classes=NUM_CLASSES, in_channels=inchannels)
         # w1 = model.mobilenet.features[0][0].weight

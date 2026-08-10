@@ -185,7 +185,7 @@ class CustomResNetBinary(nn.Module):
         else:
             raise ValueError("head must be 'lse' or 'attn'")
         self.head_name = head
-    def forward(self, x, xtype):
+    def forward(self, x):
         """
         x: [B, 3, H, W] 
         """
@@ -234,7 +234,7 @@ class CustomDenseNet(nn.Module):
             raise ValueError("head must be 'attn'")
         self.head_name = head
 
-    def forward(self, x, xtype):
+    def forward(self, x):
         features = self.base_model(x)
         feat_map = F.relu(features)
         logit, map_att, map_imp, _ = self.head(feat_map)
@@ -279,7 +279,7 @@ class EfficientNetB0(nn.Module):
             raise ValueError("head must be 'attn'")
         self.head_name = head
 
-    def forward(self, x, xtype):
+    def forward(self, x):
         feat_map = self.base_model(x)
 
         # logit, map_ = self.head(feat_map, xtype)

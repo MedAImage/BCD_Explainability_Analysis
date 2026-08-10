@@ -98,7 +98,7 @@ for seed in seeds:
                     "--valset", valset,
                     "--testset", testset,
                     "--positive_classes", positive_class,
-                    "--dataroot", PROJECT_DIRPATH,#CHECK THIS TO MAKE IT UNIVERSAL
+                    "--dataroot", PROJECT_DIRPATH,
                     "--augmentation_config_path", augm_file,
                     "--device", device
                 ]
