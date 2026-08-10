@@ -109,6 +109,12 @@ Each entry on the `.json` file is composed of:
 * The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(Suspicious Calcification), Calc_tip_benig (Suspicious Calcification).
 * For the existing lesions, we saved the region of interest where is located.
 
+Starting with the original VinDr annotations, we first executed `data_format/vindr_anotaciones_orig.py` to parse the classes and ROIs into a structured JSON file `vindr_anotaciones_orig.json`. Then, we combined it with `joined_dataset.json` via `data_format/joined_json_inbreast_vindr.py` to generate our target dataset, `joined_inbreast_vindr.json`.
+
+
+
+
+
 ### Data organization
 
 Once the dataset is prepared, a K-Fold split is implemented to account for data variability and ensure more robust evaluation results.
@@ -130,9 +136,22 @@ The `data_organization/json_splits` folder contains all folders for each positiv
 The format of these files is the same as `joined_dataset.json`.
 
 
+### Data Augmentation and geometry transformation
+
+This repository contains two types of transformation to enhance the performance of the system:
+
+1. In `data_augmentation` we have the necessary scripts to apply geometrical transformations to the data for oversampling. The `flipImages.py` script allows us to create a flipped version of every mammogram on the dataset, distinguishing them from the originals by appending `_V2` to its name. The other script `expandImages.py` applies an expansion and contraction filter on the breast to generate new examples from original data.
+2. In `utils` we include tools to apply specific transformations to highlight the target lesion:
+  - `enhance_uniform.py` provides a filter to highlight suspicious structures, focusing on masses. To achieve this, the script applies different computer vision techniques, such as tissue masks, CLAHE, etc.
+  - `transforms.py` provides different augmentation techniques and morphological filters specified in the configuration file.
+
+
+
+
+
 ### Configuration-Driven Data Augmentation
 
-To ensure the model's capability to generalize, we use different configuration `YAML` files to perform channel-wise and lesion-wise data augmentation techniques.
+We use different configuration `YAML` files to perform channel-wise and lesion-wise data augmentation techniques.
 
 * For each channel in the image, apply different techniques independently, building a 3-channel mammography image where each channel has a different process.
 ```yaml
@@ -150,11 +169,6 @@ expand_factors_cropped: [1.25, 0.8]
 testDebug: True
 ```
 In the `configuration_files/augment_transform_` directory there are several `YAML` example files to load and modify.
-
-All these transformations utilities are included in directory `utils/` 
-
-1. `enhance_uniform.py` provides a filter to highlight suspicious structures, focusing on masses. To achieve this, the script applies different computer vision techniques, such as tissue masks, CLAHE, etc...
-2. `transforms.py` provides different augmentation techniques and morphological filters specified in the configuration file.
 
 
 
