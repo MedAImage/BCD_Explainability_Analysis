@@ -1,20 +1,24 @@
 # Explainability-aware evaluation of CNNs for breast lesion detection
 Official implementation of the paper "Explainability-aware evaluation of CNNs for breast lesion detection"
 
-This work presents a system to evaluate the best possible deep learning models for breast lesion detection in screening mammography. Most of the medical imaging projects have relied on quantitative metrics such as **recall**, **F1-Score** or **AUC-ROC** to select the architecture that fit better to help diagnosis.
+This work presents a framework to evaluate CNN-based models for breast lesion detection that jointly considers predictive performance and spatial explainability.
+<!--
+Most of the medical imaging projects have relied on quantitative metrics such as **recall**, **F1-Score** or **AUC-ROC** to select the architecture that fit better to help diagnosis.
+However, in recent years many approaches have emerged with the motivation of giving more reliable and precise results through explainable artificial intelligence (XAI). 
+This work  leverages these XAI methods alongside conventional quantitative metrics to evaluate the models and make a much more confident and accurate selection to support medical experts in their clinical workflow.
+-->
 
-However, in recent years many approaches have emerged with the motivation of giving more reliable and precise results through the explainable artificial intelligence (XAI) and the use of quantitative metrics. 
-This project leverages these XAI methods alongside traditional quantitative metrics to evaluate the models and make a much more confident and accurate selection to support medical experts in their clinical workflow.
+This repository contains all the necessary code and examples to work with two selected public breast lesion datasets, as well as an implementation of various models to run and generate sample visualizations for the model evaluation.
 
-This repository contains all the necessary code and examples to work with the two selected public breast lesion datasets, as well as an implementation of various models to run and generate sample visualizations for the model evaluation.
-
-Example results and jsons files can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc)
+Results and data files can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc)
 
 To download the original data we encourage to contact the original sources:
 * For VinDr-Mammo you can access to data from here: https://physionet.org/content/vindr-mammo/1.0.0/
 * For InBreast dataset we suggest to contact the original authors because the original source is not currently available.
 
+<!--
 This repository has explanations and tools to go from original source material to the formatted dataset ready to perform the experiments, any doubt, question or suggestion please, contact us to the final emails at the end of this readme.
+-->
 
 
 ## 1. Dataset and Format
@@ -60,7 +64,7 @@ The organization in both datasets for each patient folder is the following:
   </tbody>
 </table>
 
-The information with respect to each patient is contained in a `Rois.json` file in each patient's folder, this `.json` contains:
+The information of each patient is contained in a JSON file located at the patient's folder. This JSON file contains:
 
 - Name of each image file.
 - Anotation containning information from the lesions.
@@ -110,8 +114,6 @@ Each entry on the `.json` file is composed of:
 * For the existing lesions, we saved the region of interest where is located.
 
 Starting with the original VinDr annotations, we first executed `data_format/vindr_anotaciones_orig.py` to parse the classes and ROIs into a structured JSON file `vindr_anotaciones_orig.json`. Then, we combined it with `joined_dataset.json` via `data_format/joined_json_inbreast_vindr.py` to generate our target dataset, `joined_inbreast_vindr.json`.
-
-
 
 
 
@@ -285,7 +287,7 @@ This repository contains several tools to make a visual representation of the me
 * `analyze_xai_results.py`: Evaluates the precision and quality of the XAI methods, analysing how much the heatmaps correspond to the real medical lesion coordinates. For this purpose, generates a LaTeX table with the mean and standard deviation from Spearman correlation for each architecture and explainability method. Adding to this, a boxplot compares the pointing game accuracy with the post-hoc methods and  a swarmplot is created to visualize which fraction of energy from each map is inside the real lesion region through  different thresholds.
 
 
-If you need any help, struggle with the dataset or any type of suggestions please contact us:
+If you need any help or have any suggestions, please contact us:
 
 * Pilar Bachiller-Burgos: pilarb@unex.es
 * Jose Luis García-Salas: joselgs96@unex.es
