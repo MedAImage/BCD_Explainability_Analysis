@@ -1,5 +1,5 @@
-# Breast Cancer Detection: Explainability Analysis
-Official implementation of the paper "Model evaluation beyond accuracy: explainability and variability analysis for breast lesion detection"
+# Explainability-aware evaluation of CNNs for breast lesion detection
+Official implementation of the paper "Explainability-aware evaluation of CNNs for breast lesion detection"
 
 This work presents a system to evaluate the best possible deep learning models for breast lesion detection in screening mammography. Most of the medical imaging projects have relied on quantitative metrics such as **recall**, **F1-Score** or **AUC-ROC** to select the architecture that fit better to help diagnosis.
 
