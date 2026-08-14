@@ -24,7 +24,7 @@ This repository has explanations and tools to go from original source material t
 ## 1. Dataset and Format
 
 The dataset used is composed of screening mammographies from two published datasets: **InBreast** and **VinDrMammo**.
-In the field of early breast cancer detection, for each patient, four mammographic views are acquired, depending on:
+For each patient, four mammographic views are acquired, depending on:
 
 - The projection: The view could be Craniocaudal (CC) if its view is from above or Mediolateral oblique (ML) if its view is from the sideline.
 - The laterality: It could be Right or Left.
