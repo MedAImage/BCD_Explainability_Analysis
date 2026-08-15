@@ -1,11 +1,8 @@
 import os
 import sys
 import copy
-import shutil
 import json
 # from dataset import ALL_CLASSES
-import pydicom
-import numpy as np
 import cv2
 
 
@@ -53,7 +50,7 @@ for an in annotations:
     
     findings = annotations[an]['label']
     new_annotation = {}
-    #COPIA PARA LA ESTRUCTURA DE ANOTACION
+
     new_find = copy.deepcopy(CLASSES)
     
     #FLIPPED IMAGE NAME CREATION
@@ -64,41 +61,26 @@ for an in annotations:
 
     flipped_parts = [splitted[0], "V2"] + splitted[1:]
     flippedName = "_".join(flipped_parts) + ext
-    # splittedImgBasename = imgBasename.split("_")
-    # print(splittedImgBasename)
-    # if "EXP" in splittedImgBasename:
-    #     flippedName = splittedImgBasename[0] +"_"+"V2"+"_"+splittedImgBasename[1]+"_"+ splittedImgBasename[2]+ splittedImgBasename[3]
-    #     print(flippedName)
-    #     exit()
-    # else:
-    #     flippedName = splittedImgBasename[0] +"_"+"V2"+"_"+splittedImgBasename[1]+"_"+ splittedImgBasename[2]
-    print(f"Nombre Flippeado: {flippedName}")
 
     splittedPath = imgpath.split("/")
     print(f"Original Path:{splittedPath}")
     flippedPath = os.path.join(splittedPath[0], splittedPath[1])
-    print(f"Path construido: {flippedPath}")
+    print(f"New Path: {flippedPath}")
     
-    # print(splittedPath)
-    
-    print(f"Path que figura en las anotaciones: {imgpath}")
+   
     #FLIPPED IMAGE CREATION AND SAVING
-    # print(imgpath)
+
     image = cv2.imread(os.path.join(data_root,imgpath))
     if image is None:
-        print("No se ha cargado la imagen")
+        print(f'Image {image} not found')
         continue
-    # image_height = image_shape[0] FOR VESTICAL FLIP  
+
+    #SAVING FLIPPED IMAGE PATH
     new_path = "/".join(splittedPath[0:-1])
     flippedimage = cv2.flip(image, 1)
     flippedimageOutPath = os.path.join(new_path,flippedName)
     print(f"Path destino: {flippedimageOutPath}")
     cv2.imwrite(os.path.join(data_root, flippedimageOutPath), flippedimage)
-
-    #SAVING FLIPPED IMAGE PATH
-    
-    # print(new_annotation)
-    #WRITINIG NEW IMAGE
     
     image_width = image.shape[1]
     #READING CLASSES FINDINGS
@@ -111,20 +93,14 @@ for an in annotations:
             new_find[lesion_name].append(newRoi)
     new_annotation['image'] = flippedimageOutPath
     new_annotation['label'] = new_find
-    print(f"Nueva Anotacion a incluir:{new_annotation}")
     flippedAnnotations.append(new_annotation)
 
 
-print("----------------------------NEW ANNOTATIONS ----------------------------")
 for a in flippedAnnotations:
     fName = a['image']
     fName = fName.split("/")
     fName = fName[-1]
     annotations[fName] = a
-    print("New Annotation:")
-    print(annotations[fName])
-    
-
 
 with open(jsonpath, 'w') as jsf:
     json.dump(annotations, jsf, indent=4)
