@@ -197,7 +197,7 @@ The input to the models is a pytorch tensor of shape [B, 3, H, W] (Batch_size, C
 ### Baseline: Model training
 The `train.py` script executes all the training process, this script is designed to be executed on terminal through arguments (`argparse`). This makes modifying the training conditions much easier.
 
-The custom dataset is loaded by the `dicomDataset` class defined in `dataset_load/dataset.py`. The main procedure is loading the json file from the k-fold split.
+The custom dataset is loaded by the `lesionDataset` class defined in `dataset_load/dataset.py`. The main procedure is loading the json file from the k-fold split.
 
 
 

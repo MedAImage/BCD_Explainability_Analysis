@@ -9,17 +9,13 @@ import torch
 from torch.utils.data import Dataset
 from PIL import Image, ImageOps 
 from torchvision import transforms
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, roc_auc_score
-import matplotlib.pyplot as plt
 import numpy as np
-import seaborn as sns
 import cv2
 import random
 import math
 from utils.transforms import apply_clahe, apply_top_hat, apply_morph_close, apply_entropy, gabor_bank, binarize_and_morph, resize_width_and_rois
 from utils.enhance_uniform import enhance_uniform
-import yaml
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 import copy
 
 ALL_CLASSES = {
@@ -31,82 +27,12 @@ ALL_CLASSES = {
 }
 
 
-
-
 def fix_seed(seed):
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
 
 
-
-
-################# UTILITY METHODS, FOR SEPARATING ALL INTO ONE PY FILE #################
-
-#METHOD FOR METRICS CALCULATION
-def calculate_metrics(l_true, l_predict, threshold = 0.5):
-    l_predict_bin = (l_predict>threshold).astype(int)
-    precision = precision_score(l_true,l_predict_bin, average="binary", zero_division=0)
-    recall = recall_score(l_true,l_predict_bin, average="binary",zero_division=0)
-    f1 = f1_score(l_true,l_predict_bin, average="binary",zero_division=0)
-    auc_roc = roc_auc_score(l_true,l_predict)
-    acc = accuracy_score(l_true,l_predict_bin)
-
-    # print(f"Metrics({'weighted'}): Precision:{precision}||Recall:{recall}|| F1_Score:{f1}|| Accuracy:{acc}")
-    return acc, precision, recall, f1, auc_roc
-
-
-#METHOD FOR CALCULATING CONFUSION MATRIX
-def confusion_Matrix(all_labels, all_predicts, classes):
-    
-    num_classes = len(classes)
-    combined_confMatrix = np.zeros((num_classes, 2, 2))  # Cada clase tendrá su propia matriz 2x2
-    
-    for index,cls in enumerate(classes):
-        #LABELS FOR GT AND FOR PREDCLASS
-        trueCls = all_labels[:,index]
-        predCls = all_predicts[:,index]
-
-        #CREATING CONFUSION MATRIX FOR EACH CLASS
-        cm = confusion_matrix(trueCls, predCls)
-        combined_confMatrix[index, :, :]=cm
-
-    return combined_confMatrix
-#METHOD FOR PLOTTING THE CONFUSION MATRIX
-def plottingConfMatrx(cm, class_names):
-    num_classes = len(class_names)
-
-    # Imprime el número de clases para verificar
-    # print(f"Número de clases: {num_classes}")
-
-    # Crea una sola figura con subplots para cada matriz de confusión
-    fig, axes = plt.subplots(1, num_classes, figsize=(10 * num_classes, 10)) # Ajusta el tamaño de la figura
-
-    # Si solo hay una clase, axes no será una lista, así que lo convertimos en una lista
-    if num_classes == 1:
-        axes = [axes]
-
-    for index, className in enumerate(class_names):
-        # Imprime el índice y el nombre de la clase
-        # print(f"Ploteando matriz para clase: {className} (índice: {index})")
-
-        cm_int = cm[index].astype(int)
-        #UNCOMMONT FOR PLOTTING THE CM
-
-        try:
-            sns.heatmap(cm_int, annot=True, fmt="d", cmap="plasma", cbar=False, square=True, ax=axes[index])
-            axes[index].set_title(f'Confusion Matrix for {className}')
-            axes[index].set_xlabel('Prediction')
-            axes[index].set_ylabel('True Label')
-        except Exception as e:
-            print(f"Error al plotear heatmap para {className}: {e}")
-    plt.tight_layout()  # Ajusta el espaciado entre subplots
-    # plt.show()
-    plt.close(fig)  
-    return fig
-    
-
-#SCRIPT TO PRINT THE DATASET
 def print_dataset(dataset):
     for index in range(len(dataset)):
         image, labels = dataset[index]  
@@ -118,16 +44,12 @@ def print_dataset(dataset):
 
 ################# TRANSFORM METHODS #################
 
-### THIS IS DONE LIKE THIS TO ENSURE THE REPRODUCIBILITY OF THE DATA AUGMENTATION ###
 
 #METHOD FOR RETURNING THE TRANSFORM DATA AGUMENTATION
 def data_augmentation_transform():
     return transforms.Compose([
-    # transforms.Resize((512,512)),
     transforms.ColorJitter(brightness=(0.8, 1.2), contrast = (0.8, 1.5)),
     transforms.RandomRotation(degrees = 10),
-    # transforms.ToTensor(),
-    # transforms.Normalize(mean=[0.078], std=[0.19]),  # Normalización
 ])
 
 
@@ -136,9 +58,6 @@ def data_augmentation_transform():
 def normal_transform():
     return transforms.Compose([
     transforms.RandomRotation(degrees = 0),        
-    # transforms.Resize((512,512)),
-    # transforms.ToTensor(),
-    # transforms.Normalize(mean=[0.078], std=[0.19]),  # Normalización
 ])
 
 
@@ -153,16 +72,14 @@ def rescale_image_and_rois(image, scaled_rois):
     return image, scaled_rois
 
 
-################## BASIC IMPLEMENTATION FOR CUSTOM DATASET FOR DICOMS ################## 
-class dicomDataset(Dataset):
+################## LESION DATASET ################## 
+class lesionDataset(Dataset):
     def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 100, shuffleTrain = False, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
         
         # fix_seed(seed)
         self.dataPath = dataPath
         self.dataroot = dataroot
         self.testDebug = testDebug
-        # self.transforms_config = transforms_config
-        # print(f"Transforms config in dataset: {self.transforms_config}")
         self.withLTimeAugmentation = withLTimeAugmentation
 
         cfg = transforms_config or {}
@@ -175,7 +92,6 @@ class dicomDataset(Dataset):
         self.load_expanded_cropped = bool(cfg.get("expanded_cropped", False))
         self.expand_factors_cropped = cfg.get("expand_factors_cropped", [1.25, 0.8])  
 
-        # legacy (no usado si hay channels)
         self.transforms_config = cfg.get("transformations", None)
 
         print(f"[dataset] flipped(V2): {self.load_flipped} | expanded(EXP): {self.load_expanded}")
@@ -207,20 +123,6 @@ class dicomDataset(Dataset):
         
         self.transform_with_class = transform_with_class
         self.shuffleTrain = shuffleTrain
-
-        # ## Leer de augment_transform.yaml si flipped y/o expanded
-        # self.load_flipped  = False
-        # self.load_expanded = False
-        # try:
-        #     yaml_path = os.path.join(self.dataroot, "augment_transform.yaml")
-        #     with open(yaml_path, "r") as yf:
-        #         _cfg = yaml.safe_load(yf) or {}
-        #         self.load_flipped  = bool(_cfg.get("flipped", False))
-        #         self.load_expanded = bool(_cfg.get("expanded", False))
-        # except FileNotFoundError:
-        #     pass
-        # print(f"[dataset] flipped(V2): {self.load_flipped} | expanded(EXP): {self.load_expanded}")
-
 
         if os.path.isdir(dataPath):
             self.load_dataset_from_dir(dataPath, limit)
@@ -429,14 +331,8 @@ class dicomDataset(Dataset):
         scale_factor = 0.2
 
         image = cv2.imread(image_pth, cv2.IMREAD_GRAYSCALE)
-        # print(f"\n--- PASO 1: DATOS ORIGINALES (en __getitem__) ---")
-        # print(f"ROIs Originales: {image_rois}")
-        # print(f"Shape Imagen Original: {image.shape}")
 
         image = cv2.resize(image, None, fx=scale_factor, fy=scale_factor)
-        # sfx = 512/image.shape[1]
-        # sfy = 512/image.shape[0]
-        # image = cv2.resize(image, (512, 512))
 
         scaled_rois = copy.deepcopy(image_rois)
 
@@ -444,11 +340,6 @@ class dicomDataset(Dataset):
             roi_type: [[box[0] * scale_factor, box[1] * scale_factor, box[2] * scale_factor, box[3] * scale_factor]for box in boxes]
         for roi_type, boxes in scaled_rois.items()
         }
-
-        # if self.withLTimeAugmentation:
-        #     image, scaled_rois = rescale_image_and_rois(image, scaled_rois)
-
-
 
         # Expandir/contraer las imagenes recortadas
         if self.load_expanded_cropped and self.expand_factors_cropped:
@@ -565,7 +456,6 @@ class dicomDataset(Dataset):
                         weights.append(float(v))
 
                 w = np.array(weights, dtype=np.float32)
-                # w = w / w.sum() if w.sum() > 0 else np.full_like(w, 1.0 / max(1, len(w)))
                 w = w/100
 
                 acc = np.zeros_like(base, dtype=np.float32)
@@ -581,54 +471,11 @@ class dicomDataset(Dataset):
             finalImage = np.stack(channels_out, axis=0) if channels_out else base[None, ...]
             image_array = (torch.from_numpy(finalImage).float()) / 255.0
 
-        # elif self.transforms_config:
-        #     image_np = np.array(image_array)
-        #     multichannel_image = [image_np]
-        #     for name in self.transforms_config:
-        #         if name == "Clahe":
-        #             multichannel_image.append(apply_clahe(image_np))
-        #         elif name == "TopHat":
-        #             multichannel_image.append(apply_top_hat(image_np))
-        #         elif name == "Gabor":
-        #             gabor_raw = gabor_bank(image_np)
-        #             # normaliza Gabor a uint8
-        #             g = gabor_raw.astype(np.float32)
-        #             mn, mx = float(g.min()), float(g.max())
-        #             g = np.zeros_like(g, dtype=np.uint8) if mx==mn else ((g-mn)/(mx-mn)*255).astype(np.uint8)
-        #             multichannel_image.append(g)
-        #         elif name == "Binary":
-        #             if "Gabor"  in self.transforms_config:
-        #                 binary_mask = binarize_and_morph(gabor_raw)
-        #                 multichannel_image.append(binary_mask)
-        #             else:
-        #                 print("Error: 'Binary' transformation requires 'Gabor' to be applied first.")
-        #         elif name=="Copy":
-        #             multichannel_image.append(np.copy(image_np))
-        #         elif name.startswith('Binarize'):
-        #             splitname = name.split('_')
-        #             minval = int(splitname[-2])
-        #             maxval = int(splitname[-1])
-        #             binimg = np.where(np.logical_and(image_np>=minval, image_np<maxval), 255, 0)
-        #             multichannel_image.append(binimg)
-
-
-        #     finalImage = np.stack(multichannel_image, axis=0)
-        #     image_array = (torch.from_numpy(finalImage).float())/255.
-            # print(f"Image shape after transformations: {image_array.shape}")
-        # image_array = transforms.Normalize(mean=[0.078], std=[0.19])(image_array)
         else:
             image_array = transforms.ToTensor()(image_array)
-        #     image_array = transforms.Normalize(mean=[0.078], std=[0.19])(image_array)
-        #     print(f"Image shape without transformations: {image_array.shape}")
-
-
-        # image_array = transforms.Normalize(mean=[0.078], std=[0.19])(image_array)
 
 
         label_tensor = torch.tensor(labels, dtype=torch.float32)
-        # print(f"\n--- PASO 2: DATOS AJUSTADOS (en __getitem__) ---")
-        # print(f"ROIs Ajustadas: {scaled_rois}")
-        # print(f"Shape Tensor Final: {image_array.shape}")
         return image_array, scaled_rois, image_type, label_tensor, img_name
     
 
@@ -664,32 +511,18 @@ def collate_pad_to32(batch):
         C, H, W = x.shape
         sizes.append((H, W))
         proc_imgs.append(x)
-
-
-
     H_pad, W_pad = make_pad_to_multiple(sizes, multiple=32)
 
     batch_imgs = torch.zeros(B, 3, H_pad, W_pad, dtype=proc_imgs[0].dtype)
-    # batch_masks = torch.zeros(B, 1, H_pad, W_pad, dtype=torch.bool)
-    # orig_sizes = torch.zeros(B, 2, dtype=torch.long)
 
     for i, x in enumerate(proc_imgs):
         _, H, W = x.shape
         batch_imgs[i, :, :H, :W] = x
-        # batch_masks[i, 0, :H, :W] = True
-        # orig_sizes[i] = torch.tensor([H, W])
 
     labels = torch.stack(labels).view(B, 1)
     img_types = torch.stack(img_types).view(B, 4)
 
     return batch_imgs, list(image_rois) ,img_types, labels, list(img_names)
 
-    # return {
-    #     "imgs": batch_imgs,
-    #     "labels": labels,
-    #     "masks": batch_masks,
-    #     "orig_sizes": orig_sizes,
-    #     "meta": list(metas),
-    # }
 
 

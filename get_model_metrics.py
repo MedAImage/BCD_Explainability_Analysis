@@ -5,15 +5,15 @@ from torch.utils.data import DataLoader
 import cv2
 import numpy as np
 from sklearn.metrics import precision_recall_curve, auc
-from dataset_load.dataset import dicomDataset, normal_transform, calculate_metrics, confusion_Matrix, print_dataset, collate_pad_to32
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
+from dataset_load.dataset import lesionDataset, normal_transform, calculate_metrics
 from models.base_models_final import  EfficientNetB0, CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, CustomMobileNetV3
 import argparse
 import os
 import json
 import yaml
 import copy
-import torch.nn.functional as F
-from scipy.stats import pearsonr, spearmanr, kendalltau, weightedtau
+from scipy.stats import pearsonr, spearmanr
 import sys
 sys.path.append('./pytorch-grad-cam')
 from pytorch_grad_cam import GradCAMPlusPlus, EigenCAM, ShapleyCAM
@@ -21,8 +21,6 @@ from pytorch_grad_cam.utils.model_targets import BinaryClassifierOutputTarget
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from torchvision.ops import box_iou
 from utils.pos_weight_samples import pos_weight_samples
-from collections import Counter
-from tqdm import tqdm
 WIMG = 709
 HIMG = 800
 SHOW_IMAGES = True
@@ -153,7 +151,18 @@ def show_combined_images(images, title):
     cv2.imshow(title, concat_img)
     k = cv2.waitKey(0)
     return k
-                
+
+def calculate_metrics(l_true, l_predict, threshold = 0.5):
+    l_predict_bin = (l_predict>threshold).astype(int)
+    precision = precision_score(l_true,l_predict_bin, average="binary", zero_division=0)
+    recall = recall_score(l_true,l_predict_bin, average="binary",zero_division=0)
+    f1 = f1_score(l_true,l_predict_bin, average="binary",zero_division=0)
+    auc_roc = roc_auc_score(l_true,l_predict)
+    acc = accuracy_score(l_true,l_predict_bin)
+
+    # print(f"Metrics({'weighted'}): Precision:{precision}||Recall:{recall}|| F1_Score:{f1}|| Accuracy:{acc}")
+    return acc, precision, recall, f1, auc_roc
+
 
 def cuantitative_metrics_report(all_labels, all_predictions, bestLoss, loadedseed, bestmodel, json_suffix, save_completeMetrics_path, Bias):
     print("\n" + "="*25)
@@ -189,28 +198,6 @@ def cuantitative_metrics_report(all_labels, all_predictions, bestLoss, loadedsee
     #     print(f"Error to concatenate: {ve}")
     return metrics
 
-def explainable_acc_report(all_labels, all_predictions_explained, topK):
-    try:
-        all_labels = np.array(all_labels)
-        k = topK[0]
-        all_predictions_explained[k] = np.array(all_predictions_explained[k])
-
-        acc, precision, recall, f1, auc_roc = calculate_metrics(all_labels, all_predictions_explained[k], threshold=0.5)
-        precision_auprc, recall_auprc, _ = precision_recall_curve(all_labels, all_predictions_explained[k])
-        auprc = auc(recall_auprc, precision_auprc)
-
-        metrics = {
-            "Precision": precision,
-            "Recall": recall,
-            "F1 Score": f1,
-            "AUC-ROC": auc_roc,
-            "AUPRC": auprc,
-            "Accuracy": acc
-        }
-
-    except ValueError as ve:
-        print(f"Error to concatenate: {ve}")
-    return metrics
 
 def explainable_weighted_report(all_labels, all_predictions_explained):
     metrics = {}
@@ -282,77 +269,6 @@ def explainable_metrics_report(map_results, pos_classes_predictions, logits):
     print(metrics)
     return metrics
 
-
-
-def get_roi_attention_level(att_map, roi, topK):
-    x, y, w, h = int(roi[0]), int(roi[1]), int(roi[2]), int(roi[3])
-    top_K_att = dict()
-    for k in topK:
-        n_pixels = int(w*h*k/100)
-        top_att = np.mean(np.sort(att_map[y:y+h, x:x+h].flatten())[-n_pixels:])
-        # top_K_att[k] = top_att
-        pct = 10
-        y_min = max(0, y-int(pct*h/100))
-        y_max = min(y+h+int(pct*h/100), att_map.shape[0])
-        x_min = max(0, x-int(pct*w/100))
-        x_max = min(x+w+int(pct*w/100), att_map.shape[1])
-
-        top_K_att[k] = np.sum(att_map[y_min:y_max, x_min:x_max])    
-    sum_att = np.sum(att_map[y:y+h, x:x+h])
-
-    return top_K_att, sum_att
-  
-def get_attention_weight_2(att_map, rois, img_size, topK = [20, 40, 60, 80]):
-    H_orig, W_orig = img_size[0], img_size[1]
-    half = (np.min(att_map)+np.max(att_map))/2
-    norm_att_map = np.copy(att_map) #cv2.resize(att_map, (W_orig, H_orig))
-    norm_att_map[norm_att_map<half] = 0
-    ground_truth_mask = np.zeros_like(norm_att_map).astype(np.uint8)
-
-    H_scale, W_scale = norm_att_map.shape[0]/H_orig, norm_att_map.shape[1]/W_orig
-
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-    rois_att_list = []
-    area_roi = []
-    total_area_roi = 0
-    for r in rois:
-        roi_mask = np.zeros_like(norm_att_map).astype(np.uint8)
-        cx, cy = r[0]+r[2]/2, r[1]+r[3]/2
-        w, h = max(int(r[2]*W_scale), 1), max(int(r[3]*H_scale), 1)
-        x, y = int(cx*W_scale-w/2), int(cy*H_scale-h/2)
-        # x, y = int((r[0])*W_scale), int(r[1]*H_scale)
-        # w, h = max(int(r[2]*W_scale), 1), max(int(r[3]*H_scale), 1)
-        ground_truth_mask[y:y+h, x:x+w] = 1
-        roi_mask[y:y+h, x:x+w] = 1
-        roi_mask = cv2.dilate(roi_mask, kernel)
-        rois_att_list.append(np.sum(norm_att_map[roi_mask==1]))
-        area_roi.append(w*h)
-        total_area_roi += w*h
-
-    ground_truth_mask = cv2.dilate(ground_truth_mask, kernel)
-    rois_att = np.sum(norm_att_map[ground_truth_mask==1])
-    bg_att = np.sum(norm_att_map[ground_truth_mask==0])
-
-    img_to_show = cv2.resize(ground_truth_mask*255, (400, 400))
-    # cv2.imshow("mask", img_to_show)
-
-    rois_att_np = np.array(rois_att_list).astype(np.float32)
-
-    w_roi = np.array(area_roi, dtype=np.float32)/total_area_roi
-    rois_att_np = rois_att_np/(rois_att_np+bg_att*w_roi+0.000000001)
-    
-    print(rois_att_np)
-    mean_att = np.average(rois_att_np, weights=w_roi)
-
-
-    attention_level = dict()
-    all_att = np.sum(norm_att_map)
-    for k in topK:
-        attention_level[k] = mean_att #rois_att / all_att
-
-
-    return attention_level
-
 def get_ground_truth_mask(orig_size, map_size, rois):
     H_orig, W_orig = orig_size[0], orig_size[1]
     H_map, W_map = map_size[0], map_size[1]
@@ -370,17 +286,17 @@ def get_ground_truth_mask(orig_size, map_size, rois):
 
     return ground_truth_mask
 
-def get_attention_weight(map, ground_truth_mask, th_zero = 0.5, normalize = True):
+def get_roi_energy_fraction(map, ground_truth_mask, th_zero = 0.5, normalize = True):
     norm_map = np.copy(map)
     norm_map[norm_map<th_zero] = 0
 
-    rois_att = np.sum(norm_map[ground_truth_mask==1])
+    rois_energy = np.sum(norm_map[ground_truth_mask==1])
 
-    total_attention = np.sum(norm_map)
-    attention_level = rois_att
-    if normalize and total_attention>0:
-        attention_level = attention_level/np.sum(norm_map)
-    return attention_level
+    total_energy = np.sum(norm_map)
+    fR = rois_energy
+    if normalize and total_energy>0:
+        fR = fR/np.sum(norm_map)
+    return fR
 
 def pointing_game_topK(map, rois, img_size, K=1):
     H_orig, W_orig = img_size[0], img_size[1]
@@ -399,20 +315,8 @@ def pointing_game_topK(map, rois, img_size, K=1):
                 break
     return hit
 
-def get_map_mass(map, K):
-    # max_indices = np.argsort(map, axis=None)
-    # nIndices = max(int(len(max_indices)*K/100), 1)
-    # topKIndices = max_indices[-nIndices:]
+def get_map_mass(map):
     map_mass = map.sum()
-    # mass = map.flatten()[topKIndices].sum()
-    # mass = mass/(map_mass+np.finfo(np.float32).eps)
-    # mass = 0
-    # # positions = []
-    # for idx in topKIndices:s
-    #     y = idx // map.shape[1]
-    #     x = idx % map.shape[1]
-    #     mass += map[y,x]
-    #     # positions.append((x,y))
     return map_mass
 
 
@@ -430,20 +334,6 @@ def concordance_corrcoef(y_true, y_pred):
     var_true, var_pred = np.var(y_true), np.var(y_pred)
     cov = np.mean((y_true - mean_true) * (y_pred - mean_pred))
     return (2 * cov) / (var_true + var_pred + (mean_true - mean_pred)**2)
-
-
-def my_metric(logits, mass):
-    dist = 1.-np.abs(logits-mass)/(np.abs(logits)+np.abs(mass)+np.finfo(np.float32).eps)
-    # print("logits",logits)
-    # print("mass",mass)
-    # print("dist",dist)
-    dist = np.mean(dist)
-    # errors = []
-    # for l, m in zip(logits, mass):
-    #     e = abs(l-m) / (abs(l)+abs(m)+np.finfo(np.float32).eps)
-    #     errors.append(e)
-    # dist = np.mean(np.array(errors))
-    return dist
 
 def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, bestModelPth, dataroot='.',   transformsConfig=None, inChannels=None, save_completeMetrics_path=None, json_suffix=None, show_image = False, testDebug = False, limit = 10000, Bias=None):
 
@@ -485,9 +375,9 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
 
     normal_data = normal_transform()
 
-    DatasetDicom = dicomDataset(dataPath = testDataset ,positive_classes = positive_classes, transform_with_class = normal_data, transforms_config=transformsConfig, testDebug=testDebugging ,dataroot=dataroot, limit=limit)
+    DatasetLesion = lesionDataset(dataPath = testDataset ,positive_classes = positive_classes, transform_with_class = normal_data, transforms_config=transformsConfig, testDebug=testDebugging ,dataroot=dataroot, limit=limit)
 
-    test_dataset = DatasetDicom
+    test_dataset = DatasetLesion
     test_labels = np.array(test_dataset.labels)
     print(f"Test Dataset Size: {len(test_dataset)}")
     test_data_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, num_workers=4, collate_fn = collate_test)
@@ -535,11 +425,11 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     test_loss = 0.0
     
 
-    images_to_save = ["0a3018e7ad1d1d7d2e142c2ca7c518fa_L_CC.png"]
+    # images_to_save = ["0a3018e7ad1d1d7d2e142c2ca7c518fa_L_CC.png"]
     with torch.no_grad():
         for inputs, rois, types, labels, img_name in test_data_loader:
-            if len(rois[0][positive_classes[0]])<1:
-                continue
+            # if len(rois[0][positive_classes[0]])<1:
+            #     continue
             img_name = str(img_name[0])
             # if img_name not in images_to_save:
             #     continue
@@ -616,7 +506,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
 
 
                 for mtype in map_types:
-                    map_mass = get_map_mass(map_results[mtype]['map'], K = 5)
+                    map_mass = get_map_mass(map_results[mtype]['map'])
                     map_results[mtype]['map_mass'].append(map_mass)                            
 
                 ground_truth_mask = get_ground_truth_mask(img_size, img_size,batch_rois[positive_classes[0]])
@@ -626,7 +516,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                     for mtype in map_types:
                         resized_map = cv2.resize(map_results[mtype]['norm_map'], (img_size[1], img_size[0]))                    
                         for th in LContrib_Th:
-                            map_results[mtype]['energy'][th].append(get_attention_weight(resized_map, ground_truth_mask, th_zero=th))
+                            map_results[mtype]['energy'][th].append(get_roi_energy_fraction(resized_map, ground_truth_mask, th_zero=th))
                         map_results[mtype]['PG_1-top'].append(pointing_game_topK(resized_map, batch_rois[positive_classes[0]], img_size, K = 1))                            
                         map_results[mtype]['PG_5-top'].append(pointing_game_topK(resized_map, batch_rois[positive_classes[0]], img_size, K = 5))
                     for th in LContrib_Th:
@@ -685,14 +575,6 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     explainable_weighted_metrics = explainable_weighted_report(all_labels, all_predictions_explained_W)
     explainable_metrics = explainable_metrics_report(map_results, pos_classes_predictions, all_logits)
     
-    outputFile = "false_positives.txt"
-    with open(outputFile, 'w')as f:
-        for filename in fp_names:
-            f.write(f"{filename}\n")
-    print(f"False positive images list saved in: {outputFile}")
-   
-    
-    #### CUANTITATIVE METRICS REPORT ####
     
     final_metrics_report={
         "cuantitative_metrics":cuantitative_metrics,
@@ -744,11 +626,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="MedImage binary classification test")
     parser.add_argument('--testset', type=str, required=True, help='Test set')
     parser.add_argument("--seed", type=int, default=51, help="Torch seed")
-<<<<<<< Updated upstream
-    parser.add_argument("--model", type=str, default="CustomResNetBinary50", help="Selection of the model to train")
-=======
-    parser.add_argument("--model", type=str, default="CustomResNetBinary", help="Selection of the model to train")
->>>>>>> Stashed changes
+    parser.add_argument("--model", type=str, default="CustomResNetBinary50", help="Selection of the model to test")
     parser.add_argument("--model_weights_path", type=str, default="/bestModels", help="Path to the model weights")
     parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
     parser.add_argument("--positive_classes", type=str, nargs='+', help='List of positive classes (Nodulo, Calc_tip_benig)')
