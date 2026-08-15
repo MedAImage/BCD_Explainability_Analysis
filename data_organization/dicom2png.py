@@ -1,7 +1,6 @@
 import pydicom
 import numpy as np
 from PIL import Image
-import sys
 import os
 import argparse
 
@@ -79,9 +78,3 @@ if __name__ == "__main__":
                 if not os.path.exists(outputFile):
                     dicom_to_png(dcmFile, outputFile)
                 nFiles += 1
-
-
-    # print("Total number of DICOM files", nFiles)
-    # dicom_to_png("/home/dataset/DPCM_IA/DICOMs/datasets/Vindr/0efca57fad3aa67efe75a11edd765472/0efca57fad3aa67efe75a11edd765472_L_ML.dcm",
-                #  "output.png")
-    # dicom_to_png(sys.argv[1], "output.png")
