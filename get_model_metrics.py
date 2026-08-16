@@ -421,8 +421,8 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     # images_to_save = ["0a3018e7ad1d1d7d2e142c2ca7c518fa_L_CC.png"]
     with torch.no_grad():
         for inputs, rois, types, labels, img_name in test_data_loader:
-            if len(rois[0][positive_classes[0]])<1:
-                continue
+            # if len(rois[0][positive_classes[0]])<1:
+            #     continue
             img_name = str(img_name[0])
             # if img_name not in images_to_save:
             #     continue
@@ -439,7 +439,6 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
             predicted_class = (probabilities >= PR_TH).float()
 
             for img, batch_rois ,label, pred_class, prob, logits in zip(inputs.tolist(), rois ,labels.tolist(), predicted_class.tolist(), probabilities.tolist(), outputs.tolist()):
-                # print(f"-True image label: {l} || Label image prediction: {p} || Correct prediction probability: {pr}")
                 pr_text = str(int(prob[0]*100)) + '%'
 
                 ####IMAGE CONSTRUCTION####
@@ -599,14 +598,10 @@ def collate_test(batch):
 
 
     batch_imgs = torch.zeros(B, 3, H_pad, W_pad, dtype=proc_imgs[0].dtype)
-    # batch_masks = torch.zeros(B, 1, H_pad, W_pad, dtype=torch.bool)
-    # orig_sizes = torch.zeros(B, 2, dtype=torch.long)
 
     for i, x in enumerate(proc_imgs):
         _, H, W = x.shape
         batch_imgs[i, :, :H, :W] = x
-        # batch_masks[i, 0, :H, :W] = True
-        # orig_sizes[i] = torch.tensor([H, W])
 
     labels = torch.stack(labels).view(B, 1)
     img_types = torch.stack(img_types).view(B, 4)
@@ -626,6 +621,7 @@ if __name__ == "__main__":
     parser.add_argument("--metrics_run_path", type=str, help="Path to the metrics run folder")
     parser.add_argument("--json_suffix", type=str, default=None, help="Suffix to append to metrics jsonl filename")
     parser.add_argument("--augmentation_config_path", type=str, default="augment_transform.yaml", help="Path to the augmentation config file")
+    parser.add_argument("--show_image", type=bool, default=False, help="Show images")
     
     args = parser.parse_args()
 
@@ -641,5 +637,5 @@ if __name__ == "__main__":
     inchannels = 3 if (isinstance(channels_list, list) and len(channels_list) == 3) else 1
     print(f"[test] in_channels = {inchannels}")
 
-    get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, dataroot=args.dataroot, transformsConfig=transformsConfig,inChannels =inchannels, save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, show_image = True, limit = 10000)
+    get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, dataroot=args.dataroot, transformsConfig=transformsConfig,inChannels =inchannels, save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, show_image = args.show_image, limit = 10000)
 
