@@ -121,7 +121,7 @@ class lesionDataset(Dataset):
         elif os.path.isfile(dataPath) and dataPath.endswith(".json"):
             self.load_dataset_from_json(dataPath,limit)
         else:
-            print('No valid format for loading the dataset')
+            print('No valid format for loading the dataset', dataPath)
             exit()   
         self.datasetSize = len(self.data)
         if self.shuffleTrain: 

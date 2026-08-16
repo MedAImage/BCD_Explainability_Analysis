@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.metrics import precision_recall_curve, auc
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from dataset_load.dataset import lesionDataset, normal_transform
-from models.base_models_final import  EfficientNetB0, CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, CustomMobileNetV3
+from models.models import  EfficientNetB0, CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, CustomMobileNetV3
 import argparse
 import os
 import json
@@ -293,7 +293,7 @@ def get_roi_energy_fraction(map, ground_truth_mask, th_zero = 0.5):
     rois_energy = np.sum(norm_map[ground_truth_mask==1])
 
     total_energy = np.sum(norm_map)
-    fR = rois_energy/total_energy
+    fR = rois_energy/(total_energy+np.finfo(np.float32).eps)
 
     return fR
 
@@ -345,24 +345,18 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     NUM_CLASSES = len(positive_classes)
     #SETTING THE ARCHITECTURE OF THE MODEL
     if modelName == "CustomResNetBinary":
-        model = CustomResNetBinary(num_classes=NUM_CLASSES, in_channels=inChannels)
-        # target_layer = [model.base_model[-1][-1]]
+        model = CustomResNetBinary()
     elif modelName == "CustomResNetBinary50":
-        model = CustomResNetBinary50(num_classes=NUM_CLASSES, in_channels=inChannels)
-        # target_layer = [model.base_model[-1][-1], model.head.attn[-1]]
+        model = CustomResNetBinary50()
     elif modelName == "EfficientNetB0":
-        model = EfficientNetB0(num_classes=NUM_CLASSES, in_channels=inChannels)
-        # target_layer = [find_last_conv(model.base_model)]
+        model = EfficientNetB0()
     elif modelName == "CustomDenseNet":
-        model = CustomDenseNet(num_classes=NUM_CLASSES, in_channels=inChannels)
-        # target_layer = [find_last_conv(model.base_model)]
+        model = CustomDenseNet()
     elif modelName == "CustomMobileNetV3":
-        model = CustomMobileNetV3(num_classes=NUM_CLASSES, in_channels=inChannels)
-        # target_layer = [find_last_conv(model.base_model)]
+        model = CustomMobileNetV3()
     else:
         raise ValueError(f"Model {modelName} not recognized. Please choose a valid model.")
 
-    # target_layer = [find_last_spatial_layer(model.base_model), model.head.attn[-1]]
     target_layer = [find_last_spatial_layer(model.base_model), model.head.proj, model.head.attn[-1]]
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")    
@@ -427,16 +421,16 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     # images_to_save = ["0a3018e7ad1d1d7d2e142c2ca7c518fa_L_CC.png"]
     with torch.no_grad():
         for inputs, rois, types, labels, img_name in test_data_loader:
-            # if len(rois[0][positive_classes[0]])<1:
-            #     continue
+            if len(rois[0][positive_classes[0]])<1:
+                continue
             img_name = str(img_name[0])
             # if img_name not in images_to_save:
             #     continue
             # print(f"\n----------Metrics score for image : {img_name}----------", flush=True)
             inputs, labels = inputs.to(device), labels.to(device)
             types = types.to(device)
-            # outputs, att_map, imp_map, feat_map, max_w = model(inputs, types)
-            outputs, att_map, imp_map = model(inputs, types)
+
+            outputs, att_map, contrib_map = model(inputs, types)
 
             loss = criterion_loss(outputs, labels)
 
@@ -462,11 +456,11 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                 base = np.stack([base, base, base], axis=-1)
 
 
-                cv_imp_map = torch.permute(imp_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach().numpy()
-                cv_imp_map_norm, grayscale_imp_map = normalize_map(cv_imp_map)
-                map_results['contribution']['map'] = cv_imp_map
-                map_results['contribution']['norm_map'] = cv_imp_map_norm
-                map_results['contribution']['gray_map'] = grayscale_imp_map
+                cv_contrib_map = torch.permute(contrib_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach().numpy()
+                cv_contrib_map_norm, grayscale_contrib_map = normalize_map(cv_contrib_map)
+                map_results['contribution']['map'] = cv_contrib_map
+                map_results['contribution']['norm_map'] = cv_contrib_map_norm
+                map_results['contribution']['gray_map'] = grayscale_contrib_map
                 
                 cv_att_map = torch.permute(att_map.squeeze(dim=0), (1, 2, 0)).squeeze().cpu().detach().numpy()
                 cv_att_map_norm, grayscale_att_map = normalize_map(cv_att_map)

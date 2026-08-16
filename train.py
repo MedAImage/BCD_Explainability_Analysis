@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, Subset
 from torchvision import transforms
-from models.base_models_final import  EfficientNetB0, CustomResNetBinary,  CustomResNetBinary50,  CustomDenseNet, CustomMobileNetV3
+from models.models import  EfficientNetB0, CustomResNetBinary,  CustomResNetBinary50,  CustomDenseNet, CustomMobileNetV3
 import numpy as np
 import matplotlib.pyplot as plt
 from dataset_load.dataset import lesionDataset, data_augmentation_transform, normal_transform, collate_pad_to32
@@ -89,11 +89,6 @@ def train(epoch = 0):
         print(f"Suffling dataset...")
         train_data_loader.dataset.shuffleDataset()
     for inputs, _,types, labels, _ in train_data_loader:
-        if epoch == 0 and running_loss == 0.0:
-            input_hash = batch_hash(inputs)
-            label_hash = batch_hash(labels)
-            print(f"Hash del primer batch de inputs: {input_hash}")
-            print(f"Hash del primer batch de labels: {label_hash}")
         #SENDING INPUT AND LABELS TO GPU
         inputs, labels = inputs.to(device), labels.to(device)
         types = types.to(device)
@@ -199,15 +194,15 @@ if __name__=="__main__":
     NUM_CLASSES = len(positive_classes)
     #SETTING THE ARCHITECTURE OF THE MODEL
     if args.model == "CustomResNetBinary":
-        model = CustomResNetBinary(num_classes=NUM_CLASSES, in_channels=inchannels)
+        model = CustomResNetBinary()
     elif args.model == "CustomResNetBinary50":
-        model = CustomResNetBinary50(num_classes=NUM_CLASSES, in_channels=inchannels, Bias=bias)
+        model = CustomResNetBinary50()
     elif args.model == "EfficientNetB0":
-        model = EfficientNetB0(num_classes=NUM_CLASSES, in_channels=inchannels)
+        model = EfficientNetB0()
     elif args.model == "CustomDenseNet":
-        model = CustomDenseNet(num_classes=NUM_CLASSES, in_channels=inchannels)
+        model = CustomDenseNet()
     elif args.model == "CustomMobileNetV3":
-        model = CustomMobileNetV3(num_classes=NUM_CLASSES, in_channels=inchannels)
+        model = CustomMobileNetV3()
 
     else:
         raise ValueError(f"Model {args.model} not recognized. Please choose a valid model.")

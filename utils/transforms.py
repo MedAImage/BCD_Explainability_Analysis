@@ -1,10 +1,5 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-from skimage.filters.rank import entropy
-from skimage.morphology import disk
-import time
-
 
 def apply_clahe(image, clip_limit=2.0, tile_grid_size=(8, 8)):
 	"""Aplica el filtro CLAHE para mejorar el contraste."""
@@ -29,27 +24,13 @@ def apply_morph_close(image, kernel_size=(15, 15)):
 
 def apply_entropy(image):
 
-	# mean = cv2.blur(image, (5,5))
-	# sqr_mean = cv2.blur(image**2, (5,5))
-	# variance = sqr_mean -mean**2
-	# new_image = cv2.normalize(255/(variance+1), None, 0, 255, cv2.NORM_MINMAX)
-
 	image = apply_clahe(image)
-	# image = apply_morph_close(image, kernel_size=(15,15))
-	# ent = entropy(image, disk(15))
-	# # new_image = image - cv2.normalize(ent, None, 0, 1, cv2.NORM_MINMAX)*image 
-	# new_image = (1 - ent/ent.max())*image 
-	# # new_image = new_image#.astype(np.uint8)
-
-	# new_image = cv2.medianBlur(image, 5)
 	gx = cv2.Sobel(image, cv2.CV_32F, 1, 0, ksize=3)
 	gy = cv2.Sobel(image, cv2.CV_32F, 0, 1, ksize=3)
 	grad = cv2.magnitude(gx, gy)
 	k=9
 	gmean = cv2.boxFilter(grad, -1, (k,k), normalize=True)
 	new_image = (1-gmean/gmean.max())*image
-	# new_image = image-gmean #cv2.normalize(1.0/(gmean+1e-3), None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-	# new_image = cv2.normalize(gmean, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 	return new_image
 
 
