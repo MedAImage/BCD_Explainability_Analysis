@@ -1,109 +1,92 @@
 import os
-import sys
-import copy
 import json
-# from dataset import ALL_CLASSES
 import cv2
+from tqdm import tqdm
 
 
-#ARGS: PATH TO IMAGES PNG || PATH TO THE JSON
-if(len(sys.argv)!=3):
-    print('Please, specify the path to the dataset and the output path for the joined data')
-    exit()
+def flip_images(jsonpath, data_root, images_versions):
+    if os.path.exists(jsonpath):
+        with open(jsonpath, 'r') as jsf:
+            try:
+                annotations = json.load(jsf)
+            except json.JSONDecodeError as e:
+                print(f"Error reading the JSON file: {e}")
+                exit()
+    else:
+        print(f"Error, file {jsonpath} not found.")
+        exit()
 
-ALL_CLASSES = {
-    "Nodulo": [],
-    "Distorsion_arq": [],
-    "Densidad_asim_foc": [],
-    "Microcalcificaciones": [],
-    "Calc_tip_benig": []
-}
+    flippedAnnotations=[]
 
-CLASSES = ALL_CLASSES
+    for an in tqdm(annotations, desc='Flipping images'):
+        imgpath = annotations[an]['image']
+        if "V2" in imgpath:
+            continue
 
+        name = an.replace('.dcm','')
+        name = name.replace('.png','')
+        name_parts = name.split('_') 
+        orig_name = '_'.join([name_parts[0], name_parts[-2], name_parts[-1]])
 
-joined_dataset_v2 = {}
-jsonpath = sys.argv[1]
+        #FLIPPED IMAGE NAME CREATION
+        imgBasename = os.path.basename(imgpath)
+        name_wo_ext, ext = os.path.splitext(imgBasename)
 
-data_root = sys.argv[2]
+        splitted = name_wo_ext.split("_")
 
-if os.path.exists(jsonpath):
-    with open(jsonpath, 'r') as jsf:
-        try:
-            annotations = json.load(jsf)
-            print("Archivo JSON cargado correctamente.")
-        except json.JSONDecodeError as e:
-            print(f"Error en el archivo JSON: {e}")
-            exit()
-else:
-    print(f"Error, el archivo {jsonpath} no se encuentra.")
-    exit()
+        flipped_parts = [splitted[0], "V2"] + splitted[1:]
+        flippedName = "_".join(flipped_parts)
 
-flippedAnnotations=[]
-# print(annotations)
-for an in annotations:
-    # print(an)
-    imgpath = annotations[an]['image']
-    if "V2" in imgpath:
-        print(f"Saliendo: ya flippeada {imgpath}")
-        continue
+        if flippedName in images_versions[orig_name]:
+            add_annotation = False
+        else:
+            add_annotation = True
+
+        flippedName = flippedName + ext
+
+        image = cv2.imread(os.path.join(data_root,imgpath))
+        if image is None:
+            print(f"Error loading image {imgpath}, omitting file...")
+            continue
+
+        #SAVING FLIPPED IMAGE PATH
+        splittedPath = imgpath.split("/")        
+        new_path = "/".join(splittedPath[0:-1])
+        flippedimage = cv2.flip(image, 1)
+        flippedimageOutPath = os.path.join(new_path,flippedName)
+        cv2.imwrite(os.path.join(data_root, flippedimageOutPath), flippedimage)
+
+        if add_annotation:
+            image_width = image.shape[1]
+            findings = annotations[an]['label']
+            new_annotation = {}
+
+            new_find = {key: [] for key in findings.keys()}
+
+            #READING CLASSES FINDINGS
+            for find, value in findings.items():
+                lesion_name = find
+                rois = value
+                for roi in rois:
+                    newRoi=roi.copy() 
+                    newRoi[0] = image_width - (newRoi[0]+newRoi[2])
+                    new_find[lesion_name].append(newRoi)
+            new_annotation['image'] = flippedimageOutPath
+            new_annotation['label'] = new_find
+            flippedAnnotations.append(new_annotation)
+
+    print("Flipped Images Done")
+
+    if flippedAnnotations:
+        for a in flippedAnnotations:
+            fName = a['image']
+            fName = fName.split("/")
+            fName = fName[-1]
+            annotations[fName] = a
+
+        with open(jsonpath, 'w') as jsf:
+            json.dump(annotations, jsf, indent=4)
+        return True
     
-    findings = annotations[an]['label']
-    new_annotation = {}
+    return False
 
-    new_find = copy.deepcopy(CLASSES)
-    
-    #FLIPPED IMAGE NAME CREATION
-    imgBasename = os.path.basename(imgpath)
-    name_wo_ext, ext = os.path.splitext(imgBasename)
-
-    splitted = name_wo_ext.split("_")
-
-    flipped_parts = [splitted[0], "V2"] + splitted[1:]
-    flippedName = "_".join(flipped_parts) + ext
-
-    splittedPath = imgpath.split("/")
-    print(f"Original Path:{splittedPath}")
-    flippedPath = os.path.join(splittedPath[0], splittedPath[1])
-    print(f"New Path: {flippedPath}")
-    
-   
-    #FLIPPED IMAGE CREATION AND SAVING
-
-    image = cv2.imread(os.path.join(data_root,imgpath))
-    if image is None:
-        print(f'Image {image} not found')
-        continue
-
-    #SAVING FLIPPED IMAGE PATH
-    new_path = "/".join(splittedPath[0:-1])
-    flippedimage = cv2.flip(image, 1)
-    flippedimageOutPath = os.path.join(new_path,flippedName)
-    print(f"Path destino: {flippedimageOutPath}")
-    cv2.imwrite(os.path.join(data_root, flippedimageOutPath), flippedimage)
-    
-    image_width = image.shape[1]
-    #READING CLASSES FINDINGS
-    for find, value in findings.items():
-        lesion_name = find
-        rois = value
-        for roi in rois:
-            newRoi=roi.copy() 
-            newRoi[0] = image_width - (newRoi[0]+newRoi[2])
-            new_find[lesion_name].append(newRoi)
-    new_annotation['image'] = flippedimageOutPath
-    new_annotation['label'] = new_find
-    flippedAnnotations.append(new_annotation)
-
-
-for a in flippedAnnotations:
-    fName = a['image']
-    fName = fName.split("/")
-    fName = fName[-1]
-    annotations[fName] = a
-
-with open(jsonpath, 'w') as jsf:
-    json.dump(annotations, jsf, indent=4)
-
-
-print("Flipped Images Done")

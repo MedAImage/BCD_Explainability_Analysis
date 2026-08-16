@@ -18,14 +18,6 @@ from utils.enhance_uniform import enhance_uniform
 from typing import List, Tuple
 import copy
 
-ALL_CLASSES = {
-    "Nodulo": [],
-    "Distorsion_arq": [],
-    "Densidad_asim_foc": [],
-    "Microcalcificaciones": [],
-    "Calc_tip_benig": []
-}
-
 
 def fix_seed(seed):
     torch.manual_seed(seed)

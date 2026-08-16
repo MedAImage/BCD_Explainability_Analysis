@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from sklearn.metrics import precision_recall_curve, auc
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
-from dataset_load.dataset import lesionDataset, normal_transform, calculate_metrics
+from dataset_load.dataset import lesionDataset, normal_transform
 from models.base_models_final import  EfficientNetB0, CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, CustomMobileNetV3
 import argparse
 import os
@@ -286,16 +286,15 @@ def get_ground_truth_mask(orig_size, map_size, rois):
 
     return ground_truth_mask
 
-def get_roi_energy_fraction(map, ground_truth_mask, th_zero = 0.5, normalize = True):
+def get_roi_energy_fraction(map, ground_truth_mask, th_zero = 0.5):
     norm_map = np.copy(map)
     norm_map[norm_map<th_zero] = 0
 
     rois_energy = np.sum(norm_map[ground_truth_mask==1])
 
     total_energy = np.sum(norm_map)
-    fR = rois_energy
-    if normalize and total_energy>0:
-        fR = fR/np.sum(norm_map)
+    fR = rois_energy/total_energy
+
     return fR
 
 def pointing_game_topK(map, rois, img_size, K=1):

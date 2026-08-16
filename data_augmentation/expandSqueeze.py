@@ -6,7 +6,6 @@ startindex = 0
 th = 20
 
 def expandSqueeze(orig_image, orientation, roi_x, roi_w, scaleFactor):
-    print(f"Original image shape: {orig_image.shape}")
 
     image = cv2.cvtColor(orig_image, cv2.COLOR_BGR2GRAY)
     image[image<th] = 0
