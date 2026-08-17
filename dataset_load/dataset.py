@@ -4,7 +4,6 @@ import sys
 abs_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if abs_path not in sys.path:
     sys.path.append(abs_path)
-from PIL import Image
 import torch
 from torch.utils.data import Dataset
 from PIL import Image, ImageOps 
@@ -13,25 +12,10 @@ import numpy as np
 import cv2
 import random
 import math
-from utils.transforms import apply_clahe, apply_top_hat, apply_morph_close, apply_entropy, gabor_bank, binarize_and_morph, resize_width_and_rois
+from utils.transforms import apply_clahe, apply_top_hat, resize_width_and_rois
 from utils.enhance_uniform import enhance_uniform
 from typing import List, Tuple
 import copy
-
-
-def fix_seed(seed):
-    torch.manual_seed(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-
-
-def print_dataset(dataset):
-    for index in range(len(dataset)):
-        image, labels = dataset[index]  
-        print(f"Index {index}:")
-        print(f" - Image Path: {dataset.data[index][0]}") 
-        print(f" - Labels: {labels}") 
-        print("-" * 50)  
 
 
 ################# TRANSFORM METHODS #################
@@ -92,21 +76,12 @@ class lesionDataset(Dataset):
         if self.load_expanded_cropped:
             print(f"[dataset] expanded_cropped factors: {self.expand_factors_cropped}")
 
-        self.transform = {
-            "Clahe": apply_clahe,
-            "Gabor": gabor_bank,
-            "TopHat": apply_top_hat,
-            "BinaryMask": binarize_and_morph,
-        }
-        # self.transform = transform
         self.data = []
-        self.labels = []
-        self.image_sizes = []
-        self.rois = []
+        self.labels =[]
         self.positiveData =[]
         self.negativeData =[]
-        self.orderedData =[]
-        self.shuffleData = []
+        self.rois =[]
+        self.image_sizes=[]
         self.CLASSES = dict()
 
         for id_class, class_name in enumerate(positive_classes):
@@ -116,9 +91,7 @@ class lesionDataset(Dataset):
         self.transform_with_class = transform_with_class
         self.shuffleTrain = shuffleTrain
 
-        if os.path.isdir(dataPath):
-            self.load_dataset_from_dir(dataPath, limit)
-        elif os.path.isfile(dataPath) and dataPath.endswith(".json"):
+        if os.path.isfile(dataPath) and dataPath.endswith(".json"):
             self.load_dataset_from_json(dataPath,limit)
         else:
             print('No valid format for loading the dataset', dataPath)
@@ -127,72 +100,6 @@ class lesionDataset(Dataset):
         if self.shuffleTrain: 
             self.orderDataset()
             self.shuffleDataset()
-
-    def load_dataset_from_dir(self, dataPath, limit):
-        patientElements = 0
-        imageElements = 0
-        roisElements = 0
-        patientNoJson = 0
-        for folder in os.listdir(dataPath):
-            if len(self.data) > limit:
-                break
-            folderpath = os.path.join(dataPath,folder)    
-            #DELVE INTO THE PATIENT FOLDERS
-            for patient in os.listdir(folderpath):
-                patient_pth = os.path.join(folderpath, patient)            
-                print(patient_pth)
-                patientElements+=1
-                if os.path.isdir(patient_pth):
-                    json_pth = os.path.join(patient_pth, "Rois.json")
-                    #CHECK IF THE PATIENT FOLDER CONTAINS JSON ANNOTATIONS FILE
-                    if not os.path.exists(json_pth):
-                        patientNoJson+=1
-                        #AQUI HAGO EL PROCESAMIENTO DE SI NO TIENE UN FICHERO JSON
-                        for img in os.listdir(patient_pth):
-                            imageElements+=1
-                            imgpath = os.path.join(patient_pth, img)
-                            # imgName = os.path.basename(imgpath)
-                            labels = [0] * self.NUM_CLASSES
-                            self.data.append((imgpath, labels))
-                            self.labels.append(labels)
-                        # print(f"Folder {patient} doesnt contain annotation 'Rois.json' file.")
-                    else:
-                        #JSON FILE LOAD WITH CHECKS
-                        with open(json_pth, 'r') as jsf:
-                            try:
-                                annotations = json.load(jsf)
-                            except json.JSONDecodeError:
-                                # print(f"Json file {json_pth} is empty or corrupted.")
-                                continue
-                        roisElements+=1
-                        #READING FOR THE JSON ANNOTATIONS
-                        for key, value in annotations.items():
-                            imageName = value["Nombre"]
-                            image_pth = os.path.join(patient_pth, imageName)
-                            if not os.path.isfile(image_pth):
-                                # print(f"Image {image_pth} is not a file:")
-                                continue    
-                            imageElements+=1
-                            #VECTOR FOR LABELING MULTICLASS
-                            labels = [0] * self.NUM_CLASSES
-                            if not value["Anotacion"]:
-                                # print(f"Annotation dont exist")
-                                # self.AnnotationNotcount +=1
-                                self.data.append((image_pth, labels))
-                                self.labels.append(labels)
-                            else:
-                                for lesion in value["Anotacion"]:
-                                    lesionType = lesion["DescripcionLesion"]
-                                    if lesionType in self.CLASSES:
-                                        labels[self.CLASSES[lesionType]] = 1
-                                self.data.append((image_pth, labels))
-                                self.labels.append(labels)
-
-
-        print(f"Número de pacientes:{patientElements}")
-        print(f"Número de imágenes:{imageElements}")
-        print(f"Número de jsons:{roisElements}")
-        print(f"Número de pacientes sin json: {patientNoJson}")
 
     def load_dataset_from_json(self, dataPath, limit):
         count = 0
@@ -291,18 +198,11 @@ class lesionDataset(Dataset):
     def orderDataset(self):
         print(f"Longitud del dataset original: {len(self.data)}")
         for sample in self.data:
-            data = ["", "", "",]
-            #AQUI NECESITA ACCEDER CORRÉCTAMENTE A LOS DATOS.
             data = sample
-            # print("Estos son los datos:")
-            # print(data)
             if data[2][0]==1 :
-                # print("Etiqueta positiva")
                 self.positiveData.append(data)
             elif data[2][0]==0:
-                # print("Etiqueta negativa")
                 self.negativeData.append(data)
-        #WARNING: CHECK IF ARRAY TYPE IS NUMPY OR PYTHON, IT CHANGES THE LOAD
         self.data = self.positiveData + self.negativeData
         self.datasetSize = len(self.positiveData)*2
         print(f"Longitud del dataset de muestras positivas:{len(self.positiveData)}")
@@ -314,6 +214,19 @@ class lesionDataset(Dataset):
         random.shuffle(shuffledData)
         self.data = self.positiveData + shuffledData[:len(self.positiveData)]   
         print(f"Longitud del dataset shuffled:{len(self.data)}")
+
+
+    def get_transform_image(self, name, base):
+        if name == "Copy":
+            return base
+        elif name == "Clahe":
+            return apply_clahe(base)
+        elif name == "TopHat":
+            return apply_top_hat(base)
+        elif name == "TopHat5x5":
+            return apply_top_hat(base, (5, 5))
+        elif name == 'EnhanceUniform':
+            return enhance_uniform(base)
 
     def __len__(self):
         return len(self.data)
@@ -353,81 +266,7 @@ class lesionDataset(Dataset):
 
         # Usar "channels" del yaml (hasta 3 canales, mezclas ponderadas)
         if getattr(self, "channels_spec", None):
-            channels_out = []
-
-            # detectar si necesitamos Gabor normalizado o bruto
-            needs_gabor_norm = False
-            needs_gabor_raw  = False
-            for spec in self.channels_spec:
-                if spec in (0, "0", None) or (isinstance(spec, dict) and len(spec) == 0):
-                    continue
-                if not isinstance(spec, dict):
-                    continue
-                for k in spec.keys():
-                    name = str(k).strip()
-                    if name == "Gabor":
-                        needs_gabor_norm = True
-                    elif name == "Binary":
-                        needs_gabor_raw = True
-
-            gabor_norm_cached = None
-            gabor_raw_cached  = None
-            if needs_gabor_norm or needs_gabor_raw:
-                gabor_raw_cached = gabor_bank(base)
-            if needs_gabor_norm:
-                g = gabor_raw_cached.astype(np.float32)
-                mn, mx = float(g.min()), float(g.max())
-                gabor_norm_cached = (
-                    np.zeros_like(base, dtype=np.uint8)
-                    if mx == mn else ((g - mn) / (mx - mn) * 255).astype(np.uint8)
-                )
-
-
-            def get_transform_image(name):
-                if name == "Copy":
-                    return base
-                elif name == "Clahe":
-                    return apply_clahe(base)
-                elif name == "BigClahe":
-                    # base2 = apply_morph_close(base, (5,5))
-                    # return apply_clahe(base2, 2, (8,8))
-                    base2 = apply_clahe(base)
-                    base2 = cv2.medianBlur(base2, 9)
-
-                    return base2
-                elif name == "TopHat":
-                    return apply_top_hat(base)
-                elif name == "TopHat5x5":
-                    return apply_top_hat(base, (5, 5))
-                elif name == "MorphClose":
-                    return apply_morph_close(base)
-                elif name == "Entropy":
-                    return apply_entropy(base)
-                elif name == 'EnhanceUniform':
-                    return enhance_uniform(base)
-                elif name == "Gabor":
-                    if gabor_norm_cached is None:
-                        g = gabor_bank(base).astype(np.float32)
-                        mn, mx = float(g.min()), float(g.max())
-                        return np.zeros_like(base, dtype=np.uint8) if mx == mn else ((g - mn) / (mx - mn) * 255).astype(np.uint8)
-                    return gabor_norm_cached
-                elif name == "Binary":
-                    gr = gabor_raw_cached if gabor_raw_cached is not None else gabor_bank(base)
-                    return binarize_and_morph(gr).astype(np.uint8)
-                elif name.startswith("Binarize_"):
-                    parts = name.split("_")
-                    if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
-                        lo, hi = int(parts[1]), int(parts[2])
-                        base_clahe = apply_clahe(base)
-                        return np.where((base_clahe >= lo) & (base_clahe < hi), 255, 0).astype(np.uint8)
-                    raise ValueError(f"Canal '{name}' mal definido; usa Binarize_min_max (p.ej. Binarize_125_175)")
-                else:
-                    if name in self.transform:
-                        out = self.transform[name](base)
-                        return out if out.dtype == np.uint8 else np.clip(out, 0, 255).astype(np.uint8)
-                    raise ValueError(f"Transform '{name}' no soportada")
-                
-            
+            channels_out = []       
             for spec in self.channels_spec:
                 if len(channels_out) >= 3:
                     break
@@ -455,7 +294,7 @@ class lesionDataset(Dataset):
                     if k_key in ("Zero",):
                         arr = np.zeros_like(base, dtype=np.uint8)
                     else:
-                        arr = get_transform_image(k_key)
+                        arr = self.get_transform_image(k_key, base)
                     acc += alpha * arr.astype(np.float32)
 
                 channels_out.append(np.clip(acc, 0, 255).astype(np.uint8))
