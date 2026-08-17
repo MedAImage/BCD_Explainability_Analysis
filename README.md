@@ -1,87 +1,20 @@
 # Explainability-aware evaluation of CNNs for breast lesion detection
 Official implementation of the paper "Explainability-aware evaluation of CNNs for breast lesion detection"
 
-This work presents a framework to evaluate CNN-based models for breast lesion detection that jointly considers predictive performance and spatial explainability.
-<!--
-Most of the medical imaging projects have relied on quantitative metrics such as **recall**, **F1-Score** or **AUC-ROC** to select the architecture that fit better to help diagnosis.
-However, in recent years many approaches have emerged with the motivation of giving more reliable and precise results through explainable artificial intelligence (XAI). 
-This work  leverages these XAI methods alongside conventional quantitative metrics to evaluate the models and make a much more confident and accurate selection to support medical experts in their clinical workflow.
--->
+This work presents a framework to evaluate CNN-based models that jointly considers predictive performance and spatial explainability. In particular, we define an explainability score that quantifies the extent to which relevant activations are concentrated within expert-annotated regions. Based on this score, we reformulate conventional evaluation metrics to incorporate spatial explainability into performance assessment. Since evaluation reliability depends on the fidelity of the explanation maps, we also introduce an attention-based architecture that generates spatial contribution maps directly linked to the prediction process. 
 
-This repository contains all the necessary code and examples to work with two selected public breast lesion datasets, as well as an implementation of various models to run and generate sample visualizations for the model evaluation.
 
-Results and data files can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc)
+This repository contains all the necessary code to reproduce our experiments on breast lesion detection.
+Data and results can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc).
 
-To download the original data we encourage to contact the original sources:
-* For VinDr-Mammo you can access to data from here: https://physionet.org/content/vindr-mammo/1.0.0/
-* For InBreast dataset we suggest to contact the original authors because the original source is not currently available.
-
-<!--
-This repository has explanations and tools to go from original source material to the formatted dataset ready to perform the experiments, any doubt, question or suggestion please, contact us to the final emails at the end of this readme.
--->
 
 
 ## 1. Dataset and Format
 
 The dataset used is composed of screening mammographies from two published datasets: **InBreast** and **VinDrMammo**.
-For each patient, four mammographic views are acquired, depending on:
+The annotations of the selected images of both dataset are available in a file called *joined_inbreast_vindr.json*.
 
-- The projection: The view could be Craniocaudal (CC) if its view is from above or Mediolateral oblique (ML) if its view is from the sideline.
-- The laterality: It could be Right or Left.
-
-The organization in both datasets for each patient folder is the following:
-<table>
-  <thead>
-    <tr>
-      <th>Breast Side</th>
-      <th>View / Projection</th>
-      <th>Description / Standard Output</th>
-    </tr>
-  </thead>
-  <tbody>
-    <!-- BLOQUE DE LA MAMA IZQUIERDA (Ocupa 2 filas) -->
-    <tr>
-      <td rowspan="2"><b>Left Breast (L)</b></td>    <!-- Este rowspan="2" fusiona la celda verticalmente -->
-      <td>CC (Craniocaudal)</td>
-      <td>Top-down view of the left breast tissue.</td>
-    </tr>
-    <tr>
-      <!-- Aquí NO pones la primera celda, porque la de arriba ya ocupa este espacio -->
-      <td>MLO (Mediolateral Oblique)</td>
-      <td>Angled view including the pectoral muscle.</td>
-    </tr>
-    <!-- BLOQUE DE LA MAMA DERECHA (Ocupa 2 filas) -->
-    <tr>
-      <td rowspan="2"><b>Right Breast (R)</b></td>   <!-- Otro rowspan="2" para el lado derecho -->
-      <td>CC (Craniocaudal)</td>
-      <td>Top-down view of the right breast tissue.</td>
-    </tr>
-    <tr>
-      <!-- Volvemos a saltarnos la primera celda -->
-      <td>MLO (Mediolateral Oblique)</td>
-      <td>Angled view including the pectoral muscle.</td>
-    </tr>
-  </tbody>
-</table>
-
-The information of each patient is contained in a JSON file located at the patient's folder. This JSON file contains:
-
-- Name of each image file.
-- Anotation containning information from the lesions.
-- Region of interest which represents the location of the lesion.
-
-
-### Data load
-
-To ensure a proper data processing, it is necessary standardize the format to load the data. Dicom format makes the images too heavy to load and process. To convert the images to png format and gather the two datasets into one run this on terminal:
-
-```python
-python join_datasets.py PATH_TO_DATASETS_FOLDERS PATH_TO_CREATE_FINAL_FOLDER_AND_JSON
-```
-
-This script generates a folder called `outDat`, which contains all the mammographies in png format and a unified `.json` file with all the information of the mammographies called `joined_dataset.json`.
-
-This `.json` has the next format:
+For each sample, its information is stored as follows:
 ```json
 
 {
@@ -106,15 +39,30 @@ This `.json` has the next format:
 
 ```
 
-Each entry on the `.json` file is composed of:
+The fields composing each entry are:
 * The name of the image in dicom format to identify each entry.
-* Field "image" with the path to the image in png format.
-* Field "label" which contains all considered lesions for this project.
-* The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(Suspicious Calcification), Calc_tip_benig (Suspicious Calcification).
-* For the existing lesions, we saved the region of interest where is located.
+* The path to the image in png format (field "image").
+* Lists of the different lesions found in the image (field "label").
 
-Starting with the original VinDr annotations, we first executed `data_format/vindr_anotaciones_orig.py` to parse the classes and ROIs into a structured JSON file `vindr_anotaciones_orig.json`. Then, we combined it with `joined_dataset.json` via `data_format/joined_json_inbreast_vindr.py` to generate our target dataset, `joined_inbreast_vindr.json`.
+The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(Suspicious Calcification), Calc_tip_benig (Suspicious Calcification).
+For the existing lesions, the field "label" includes a list of the regions where they are located (x, y, w, h).
 
+
+### Dataset preparation
+
+To prepare the dataset, it is first necessary to download the original data from Vindr-Mammo and InBreast:
+
+* For VinDr-Mammo, you can access the data from here: [https://physionet.org/content/vindr-mammo/1.0.0/](https://physionet.org/content/vindr-mammo/1.0.0/)
+* InBreast dataset is available at [https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset](https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset)
+
+Once both datasets have been downloaded and unzipped, the images composing our dataset can be extracted using the script 'data_organization/get_dataset_images.py':
+
+
+```python
+cd data_organization
+python get_dataset_images.py --dataset joined_inbreast_vindr.json --vindrdir VINDR_PATIENTS_DIRECTORY --vindrcsv VINDR_FINDING_ANNOTATIONS_FILE --inbreastdir INBREAST_IMAGES_DIRECTORY --outputdir OUTPUT_DIRECTORY
+
+```
 
 
 ### Data organization
