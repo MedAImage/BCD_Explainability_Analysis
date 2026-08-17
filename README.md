@@ -11,7 +11,7 @@ Data and results can be downloaded using this [link](https://unexes-my.sharepoin
 
 ## 1. Dataset and Format
 
-The dataset used is composed of screening mammographies from two published datasets: **InBreast** and **VinDrMammo**.
+The dataset used is composed of screening mammograms from two published datasets: **INbreast** and **VinDrMammo**.
 The annotations of the selected images of both dataset are available in a file called *joined_inbreast_vindr.json*.
 
 For each sample, its information is stored as follows:
