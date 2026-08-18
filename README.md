@@ -53,7 +53,7 @@ For the existing lesions, the field "label" includes a list of the regions where
 To prepare the dataset, it is first necessary to download the original data from Vindr-Mammo and INbreast:
 
 * For VinDr-Mammo, you can access the data from here: [https://physionet.org/content/vindr-mammo/1.0.0/](https://physionet.org/content/vindr-mammo/1.0.0/)
-* InBreast dataset is available at [https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset](https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset)
+* INBreast dataset is available at [https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset](https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset)
 
 Once both datasets have been downloaded and unzipped, the images composing our dataset can be extracted using the script 'data_organization/get_dataset_images.py':
 
@@ -86,6 +86,7 @@ For a single partitioning, run the following command:
 ```python
 cd data_organization
 python train_val_test_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY```
+
 
 Alternatively, a K-Fold split can be generated with "kfold_split.py":
 
