@@ -85,14 +85,16 @@ Once the dataset is prepared, it has to be splitted into train/validation/test s
 For a single partitioning, run the following command:
 ```python
 cd data_organization
-python train_val_test_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY```
+python train_val_test_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY
+```
 
 
 Alternatively, a K-Fold split can be generated with "kfold_split.py":
 
 ```python
 cd data_organization
-python kfold_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY```
+python kfold_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY
+```
 
 This command generates a 5-fold stratified split with the following organization:
 
