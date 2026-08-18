@@ -13,6 +13,8 @@ import os
 import json
 import yaml
 import copy
+import math
+from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
 import sys
 sys.path.append('./pytorch-grad-cam')
@@ -26,11 +28,6 @@ HIMG = 800
 SHOW_IMAGES = True
 PR_TH = 0.5
 PEARSON_THRESHOLD = 0.5
-
-General_Exp_metrics = { "Total_positives": 0, "Total_negatives": 0, "True_positives": 0,
-                        "True_negatives": 0, "False_positives": 0, "False_negatives": 0,
-                        "TP_Perfect": 0, "TP_Good": 0, "TP_Weak": 0, "TP_Failed": 0,
-                        "FN_Perfect": 0, "FN_Good": 0, "FN_Weak": 0, "FN_Failed": 0}
 
 ###ARGUMENTS PARSER METHOD FOR LOAD A CONFIG FILE IF EXIST###
 def parse_args(parser):
@@ -80,15 +77,10 @@ class CamWrapperAdapter(nn.Module):
     def __init__(self, model: nn.Module):
         super().__init__()
         self.model = model
-        self._types = None
-
-    def set_types(self, t: torch.Tensor):
-        self._types = t
-
 
     #MAKES DISTINCTION BETWEEN FORMS OF RETURN, LIKE TYPES AND ADAPTER OUTPUT
     def forward(self, x: torch.Tensor):
-        out = self.model(x, self._types)
+        out = self.model(x)
         if isinstance(out,(tuple, list)):
             out = out[0]
         return out
@@ -106,9 +98,8 @@ def draw_rois(image, rois, size, classes, color = (0,255,0)):
 
 
 
-def get_gradCam_map(cam_model, types, target_layers, inputs):
+def get_gradCam_map(cam_model, target_layers, inputs):
     with torch.enable_grad():
-        cam_model.set_types(types)
         gradcam_maps = []
         for i, layer in enumerate(target_layers):
             cam_ctx = GradCAMPlusPlus(model=cam_model, target_layers=[layer])
@@ -118,9 +109,8 @@ def get_gradCam_map(cam_model, types, target_layers, inputs):
 
     return gradcam_maps
 
-def get_eigenCam_map(cam_model, types, target_layers, inputs):
+def get_eigenCam_map(cam_model, target_layers, inputs):
     with torch.enable_grad():
-        cam_model.set_types(types)
         eigencam_maps = []
         for i, layer in enumerate(target_layers):
             cam_ctx = EigenCAM(model=cam_model, target_layers=[layer])
@@ -130,9 +120,8 @@ def get_eigenCam_map(cam_model, types, target_layers, inputs):
 
     return eigencam_maps
 
-def get_shapleyCam_map(cam_model, types, target_layers, inputs):
+def get_shapleyCam_map(cam_model, target_layers, inputs):
     with torch.enable_grad():
-        cam_model.set_types(types)
         shapleycam_maps = []
         for i, layer in enumerate(target_layers):
             cam_ctx = ShapleyCAM(model=cam_model, target_layers=[layer])
@@ -143,10 +132,12 @@ def get_shapleyCam_map(cam_model, types, target_layers, inputs):
     return shapleycam_maps
 
 def show_combined_images(images, title):
-    concat_img = np.zeros((800,800,3), dtype=np.uint8)
+    NROWS = 2 if len(images)>2 else 1
+    NCOLUMNS = len(images) if len(images)<=2 else math.ceil(len(images)/2)
+    concat_img = np.zeros((400*NROWS,400*NCOLUMNS,3), dtype=np.uint8)
     for i, img in enumerate(images):
         res_img = cv2.resize(img, (400, 400))
-        r,c = i//2, i%2
+        r,c = i//NCOLUMNS, i%NCOLUMNS
         concat_img[r*400: (r+1)*400, c*400: (c+1)*400] = res_img
     cv2.imshow(title, concat_img)
     k = cv2.waitKey(0)
@@ -160,42 +151,28 @@ def calculate_metrics(l_true, l_predict, threshold = 0.5):
     auc_roc = roc_auc_score(l_true,l_predict)
     acc = accuracy_score(l_true,l_predict_bin)
 
-    # print(f"Metrics({'weighted'}): Precision:{precision}||Recall:{recall}|| F1_Score:{f1}|| Accuracy:{acc}")
     return acc, precision, recall, f1, auc_roc
 
 
-def cuantitative_metrics_report(all_labels, all_predictions, bestLoss, loadedseed, bestmodel, json_suffix, save_completeMetrics_path, Bias):
-    print("\n" + "="*25)
-    print("CUANTITATIVE PERFORMANCE METRICS REPORT")
-    print("\n" + "="*25)
-    if True:
-        all_labels = np.array(all_labels)
-        all_predictions = np.array(all_predictions)
-        # print(f"All labels shape: {all_labels.shape}")
-        # print(f"All predictions shape: {all_predictions.shape}")
+def cuantitative_metrics_report(all_labels, all_predictions, bestLoss, loadedseed, model):
+    all_labels = np.array(all_labels)
+    all_predictions = np.array(all_predictions)
 
+    acc, precision, recall, f1, auc_roc = calculate_metrics(all_labels, all_predictions, threshold=0.5)
+    precision_auprc, recall_auprc, _ = precision_recall_curve(all_labels, all_predictions)
+    auprc = auc(recall_auprc, precision_auprc)
 
-        acc, precision, recall, f1, auc_roc = calculate_metrics(all_labels, all_predictions, threshold=0.5)
-        precision_auprc, recall_auprc, _ = precision_recall_curve(all_labels, all_predictions)
-        auprc = auc(recall_auprc, precision_auprc)
-        print(f"TestLoss:{bestLoss:.4f} || Precision:{precision:.4f} || Recall:{recall:.4f} || F1 Score:{f1:.4f} || AUC-ROC:{auc_roc:.4f} || Accuracy:{acc:.4f}")
-        #OPENING A JSON TO SAVE THE METRICS
-        metrics = {
-            "Seed": loadedseed,
-            "Model-Run": bestmodel,
-            "Test Loss": bestLoss,
-            "Precision": precision,
-            "Recall": recall,
-            "F1 Score": f1,
-            "AUC-ROC": auc_roc,
-            "AUPRC": auprc,
-            "Accuracy": acc
-        }
-        if Bias is not None:
-            metrics["Bias"] = Bias
-
-    # except ValueError as ve:
-    #     print(f"Error to concatenate: {ve}")
+    metrics = {
+        "Seed": loadedseed,
+        "Model-Run": model,
+        "Test Loss": bestLoss,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1,
+        "AUC-ROC": auc_roc,
+        "AUPRC": auprc,
+        "Accuracy": acc
+    }
     return metrics
 
 
@@ -265,8 +242,6 @@ def explainable_metrics_report(map_results, pos_classes_predictions, logits):
             metrics['spearman'][mtype] = [0, 1]
             metrics['ccc'][mtype] = [0,1]
 
-
-    print(metrics)
     return metrics
 
 def get_ground_truth_mask(orig_size, map_size, rois):
@@ -334,15 +309,13 @@ def concordance_corrcoef(y_true, y_pred):
     cov = np.mean((y_true - mean_true) * (y_pred - mean_pred))
     return (2 * cov) / (var_true + var_pred + (mean_true - mean_pred)**2)
 
-def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, bestModelPth, dataroot='.',   transformsConfig=None, inChannels=None, save_completeMetrics_path=None, json_suffix=None, show_image = False, testDebug = False, limit = 10000, Bias=None):
+def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, bestModelPth, dataroot='.', transformsConfig=None, save_completeMetrics_path=None, json_suffix=None, show_image = False, compare_cam = False, limit = 10000):
 
     seed = torch.manual_seed(loadedseed)
     print(f"Best model path: {bestModelPth}")
     bestmodel = bestModelPth.split("/")[-1]
     print(f"Best model: {bestmodel}")
-    testDebugging = testDebug
 
-    NUM_CLASSES = len(positive_classes)
     #SETTING THE ARCHITECTURE OF THE MODEL
     if modelName == "CustomResNetBinary":
         model = CustomResNetBinary()
@@ -368,7 +341,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
 
     normal_data = normal_transform()
 
-    DatasetLesion = lesionDataset(dataPath = testDataset ,positive_classes = positive_classes, transform_with_class = normal_data, transforms_config=transformsConfig, testDebug=testDebugging ,dataroot=dataroot, limit=limit)
+    DatasetLesion = lesionDataset(dataPath = testDataset ,positive_classes = positive_classes, transform_with_class = normal_data, transforms_config=transformsConfig, dataroot=dataroot, limit=limit)
 
     test_dataset = DatasetLesion
     test_labels = np.array(test_dataset.labels)
@@ -392,12 +365,16 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     
     
     map_results = {}
-    map_types = ['contribution', 'attention', 
-                 'grad_cam_cnn', 'grad_cam_proj', 'grad_cam_att',
-                 'eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att',
-                 'shapley_cam_cnn', 'shapley_cam_proj', 'shapley_cam_att']
+    map_types = ['contribution', 'attention']
+    maps_to_show = ['input','contribution', 'attention']
 
+    if compare_cam:     
+        map_types += ['grad_cam_cnn', 'grad_cam_proj', 'grad_cam_att', 
+                      'eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att',
+                      'shapley_cam_cnn', 'shapley_cam_proj', 'shapley_cam_att']
+        maps_to_show += ['eigen_cam_cnn', 'grad_cam_cnn', 'shapley_cam_cnn']
 
+    maps_to_save = maps_to_show
 
     energy = {}
     for th in LContrib_Th:
@@ -407,50 +384,36 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                           'raw_energy': [], 'energy': copy.deepcopy(energy),
                           'PG_1-top': [], 'PG_5-top': [], 'map_mass': []}
 
-    if len(positive_classes) == 1:
-        title = positive_classes[0]
-    else:
-        title = 'image'
+    title = 'MAPS'
     font = cv2.FONT_HERSHEY_SIMPLEX
 
     stop_showing = False
-    fp_names = []
     test_loss = 0.0
     
 
-    # images_to_save = ["0a3018e7ad1d1d7d2e142c2ca7c518fa_L_CC.png"]
     with torch.no_grad():
-        for inputs, rois, types, labels, img_name in test_data_loader:
-            # if len(rois[0][positive_classes[0]])<1:
-            #     continue
+        for inputs, rois, _, labels, img_name in tqdm(test_data_loader):
             img_name = str(img_name[0])
-            # if img_name not in images_to_save:
-            #     continue
-            # print(f"\n----------Metrics score for image : {img_name}----------", flush=True)
             inputs, labels = inputs.to(device), labels.to(device)
-            types = types.to(device)
 
-            outputs, att_map, contrib_map = model(inputs, types)
+            outputs, att_map, contrib_map = model(inputs)
 
             loss = criterion_loss(outputs, labels)
 
             test_loss += loss.item()
             probabilities = torch.sigmoid(outputs)
-            predicted_class = (probabilities >= PR_TH).float()
 
-            for img, batch_rois ,label, pred_class, prob, logits in zip(inputs.tolist(), rois ,labels.tolist(), predicted_class.tolist(), probabilities.tolist(), outputs.tolist()):
+            for img, batch_rois ,label, prob, logits in zip(inputs.tolist(), rois ,labels.tolist(), probabilities.tolist(), outputs.tolist()):
                 pr_text = str(int(prob[0]*100)) + '%'
-
-                ####IMAGE CONSTRUCTION####
 
                 cvimg = torch.permute(torch.tensor(img), (1, 2, 0)).cpu().numpy()
                 cvimg = (cvimg*255).astype(np.uint8)
 
                 img_size = cvimg.shape
                 cvimg_orig = cv2.resize(cvimg[:,:,0], (WIMG, HIMG))
-                cvimg = cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR)
-                cvimg = draw_rois(cvimg, batch_rois, img_size, positive_classes)
-                cvimg = cv2.putText(cvimg, pr_text, (50,50), font, 1, (0,255,0), 2)
+                # cvimg = cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR)
+                # cvimg = draw_rois(cvimg, batch_rois, img_size, positive_classes)
+                # cvimg = cv2.putText(cvimg, pr_text, (50,50), font, 1, (0,255,0), 2)
                 base = cvimg_orig.astype(np.float32) / 255.0
                 base = np.stack([base, base, base], axis=-1)
 
@@ -467,34 +430,33 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                 map_results['attention']['norm_map'] = cv_att_map_norm
                 map_results['attention']['gray_map'] = grayscale_att_map
                 
+                if compare_cam:
+                    # results from EIGEN-CAM
+                    eigen_cam_types = ['eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att']
+                    sal_maps_eigencam = get_eigenCam_map(cam_model, target_layer, inputs)
+                    for imap, tmap in enumerate(eigen_cam_types):
+                        norm_map, gray_map = normalize_map(sal_maps_eigencam[imap])
+                        map_results[tmap]['map'] = sal_maps_eigencam[imap]
+                        map_results[tmap]['norm_map'] = norm_map
+                        map_results[tmap]['gray_map'] = gray_map
 
-                # results from EIGEN-CAM
-                eigen_cam_types = ['eigen_cam_cnn', 'eigen_cam_proj', 'eigen_cam_att']
-                sal_maps_eigencam = get_eigenCam_map(cam_model, types, target_layer, inputs)
-                for imap, tmap in enumerate(eigen_cam_types):
-                    norm_map, gray_map = normalize_map(sal_maps_eigencam[imap])
-                    map_results[tmap]['map'] = sal_maps_eigencam[imap]
-                    map_results[tmap]['norm_map'] = norm_map
-                    map_results[tmap]['gray_map'] = gray_map
+                    # results from GRAD-CAM++
+                    grad_cam_types = ['grad_cam_cnn', 'grad_cam_proj', 'grad_cam_att']
+                    sal_maps_gradcam = get_gradCam_map(cam_model, target_layer, inputs)
+                    for imap, tmap in enumerate(grad_cam_types):
+                        norm_map, gray_map = normalize_map(sal_maps_gradcam[imap])
+                        map_results[tmap]['map'] = sal_maps_gradcam[imap]
+                        map_results[tmap]['norm_map'] = norm_map
+                        map_results[tmap]['gray_map'] = gray_map
 
-
-                # results from GRAD-CAM++
-                grad_cam_types = ['grad_cam_cnn', 'grad_cam_proj', 'grad_cam_att']
-                sal_maps_gradcam = get_gradCam_map(cam_model, types, target_layer, inputs)
-                for imap, tmap in enumerate(grad_cam_types):
-                    norm_map, gray_map = normalize_map(sal_maps_gradcam[imap])
-                    map_results[tmap]['map'] = sal_maps_gradcam[imap]
-                    map_results[tmap]['norm_map'] = norm_map
-                    map_results[tmap]['gray_map'] = gray_map
-
-                # results from SHAPLEY-CAM
-                shapley_cam_types = ['shapley_cam_cnn', 'shapley_cam_proj', 'shapley_cam_att']
-                sal_maps_shapleycam = get_shapleyCam_map(cam_model, types, target_layer, inputs)
-                for imap, tmap in enumerate(shapley_cam_types):
-                    norm_map, gray_map = normalize_map(sal_maps_shapleycam[imap])
-                    map_results[tmap]['map'] = sal_maps_shapleycam[imap]
-                    map_results[tmap]['norm_map'] = norm_map
-                    map_results[tmap]['gray_map'] = gray_map
+                    # results from SHAPLEY-CAM
+                    shapley_cam_types = ['shapley_cam_cnn', 'shapley_cam_proj', 'shapley_cam_att']
+                    sal_maps_shapleycam = get_shapleyCam_map(cam_model, target_layer, inputs)
+                    for imap, tmap in enumerate(shapley_cam_types):
+                        norm_map, gray_map = normalize_map(sal_maps_shapleycam[imap])
+                        map_results[tmap]['map'] = sal_maps_shapleycam[imap]
+                        map_results[tmap]['norm_map'] = norm_map
+                        map_results[tmap]['gray_map'] = gray_map
 
 
                 for mtype in map_types:
@@ -515,37 +477,40 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
                         contrib_weights[th] = map_results['contribution']['energy'][th][-1]
                 if show_image:
                     wpr_text = str(int(prob[0]*contrib_weights[0.5]*100)) + '%'
-                    maps_to_show = ['contribution', 'eigen_cam_cnn', 'grad_cam_cnn', 'shapley_cam_cnn']
-                    maps_to_save = ['contribution', 'attention', 'grad_cam_cnn', 'eigen_cam_cnn', 'shapley_cam_cnn']
                     vis_maps = []
                     clean_maps = []
-                    for im, mtype in enumerate(maps_to_save):
+                    map_results['input'] = {'gray_map': cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR)}
+                    for mtype in maps_to_save:
                         gray_map = map_results[mtype]['gray_map']
                         if gray_map.shape[:2] != base.shape[:2]:
                             gray_map = cv2.resize(gray_map, (base.shape[1], base.shape[0]))
 
-                        text = pr_text
-                        if im>0:
-                            text = wpr_text
-                        heatmap = show_cam_on_image(base, gray_map/255, use_rgb=False, image_weight=0.7)      
+                        text = mtype
+                        if mtype=='input':
+                            heatmap = gray_map
+                            text += '    ' + pr_text
+                        else:
+                            heatmap = show_cam_on_image(base, gray_map/255, use_rgb=False, image_weight=0.7)      
+                            if mtype=='contribution':
+                                text += '    ' + wpr_text
                         clean_maps.append(heatmap.copy())
                         if mtype in maps_to_show:
                             heatmap = draw_rois(heatmap, batch_rois, img_size, positive_classes)    
                             heatmap = cv2.putText(heatmap, text, (50,50), font, 1, (0,255,0), 2)                        
                             vis_maps.append(heatmap)
-                       
                     
                     prefix = ""
                     k = show_combined_images(vis_maps, title)
+                    map_results.pop('input')
                     if k==115: # 's'
-                        cvimg_orig = draw_rois(cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR), batch_rois, img_size, positive_classes)                            
-                        cv2.imwrite('./images_against_posthoc/'+'input_'+prefix+"_"+img_name+'.png', cvimg_orig)
-                        names = ['./images_against_posthoc/'+mname+"_"+prefix+"_"+img_name+".png"for mname in maps_to_save]
+                        if not os.path.exists('./MAPS'):
+                            os.makedirs('./MAPS')
+                        names = ['./MAPS/'+mname+"_"+prefix+"_"+img_name+".png"for mname in maps_to_save]
                         for map_to_save, f_path in zip(clean_maps, names):
                             cv2.imwrite(f_path, map_to_save)
                     elif k == 27:  # Esc
                         cv2.destroyAllWindows()
-                        exit()
+                        stop_showing = True
 
 
             all_labels.append(label[0])
@@ -557,13 +522,8 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
             if stop_showing:
                 break
         
-    
-    print("\n" + "="*50)
-    print("="*12 + "FINAL TEST MODEL REPORT" + "="*14)
-    print("\n" + "="*50)
-    
     average_test_loss = test_loss / len(test_data_loader)
-    cuantitative_metrics = cuantitative_metrics_report(all_labels, all_predictions, average_test_loss, loadedseed, bestmodel, json_suffix, save_completeMetrics_path, Bias)
+    cuantitative_metrics = cuantitative_metrics_report(all_labels, all_predictions, average_test_loss, loadedseed, bestmodel)
     explainable_weighted_metrics = explainable_weighted_report(all_labels, all_predictions_explained_W)
     explainable_metrics = explainable_metrics_report(map_results, pos_classes_predictions, all_logits)
     
@@ -577,6 +537,8 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
     json_name = "Final_metrics_runs.jsonl" if not json_suffix else f"Final_metrics_runs_{json_suffix}.jsonl"
     with open(os.path.join(save_completeMetrics_path, json_name), "a") as f:
         json.dump(final_metrics_report, f, indent=4)
+
+    print(f'Final metrics\' report saved in {json_name}')
 
 def collate_test(batch):
     """
@@ -621,7 +583,8 @@ if __name__ == "__main__":
     parser.add_argument("--metrics_run_path", type=str, help="Path to the metrics run folder")
     parser.add_argument("--json_suffix", type=str, default=None, help="Suffix to append to metrics jsonl filename")
     parser.add_argument("--augmentation_config_path", type=str, default="augment_transform.yaml", help="Path to the augmentation config file")
-    parser.add_argument("--show_image", type=bool, default=False, help="Show images")
+    parser.add_argument("--show_image", action='store_true', help="Show images")
+    parser.add_argument("--compare_cam", action='store_true', help="Compare with CAM methods")
     
     args = parser.parse_args()
 
@@ -631,11 +594,9 @@ if __name__ == "__main__":
 
 
     channels_list = config.get("channels", [])
-    print(f"[test] YAML cargado de: {args.augmentation_config_path}")
-    print(f"[test] channels: {channels_list}")
 
-    inchannels = 3 if (isinstance(channels_list, list) and len(channels_list) == 3) else 1
-    print(f"[test] in_channels = {inchannels}")
-
-    get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, dataroot=args.dataroot, transformsConfig=transformsConfig,inChannels =inchannels, save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, show_image = args.show_image, limit = 10000)
+    get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, 
+                      dataroot=args.dataroot, transformsConfig=transformsConfig,
+                      save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, 
+                      show_image = args.show_image, compare_cam = args.compare_cam, limit = 100)
 

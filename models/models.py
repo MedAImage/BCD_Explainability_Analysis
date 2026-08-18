@@ -66,7 +66,7 @@ class CustomResNetBinary50(nn.Module):
 
         self.head = AttentionHead(2048, proj_dim=proj_dim, attn_hidden=attn_hidden)
 
-    def forward(self, x, xtype):
+    def forward(self, x):
         """
         x: [B, 3, H, W] 
         """
@@ -102,7 +102,7 @@ class CustomMobileNetV3(nn.Module):
         
         self.head = AttentionHead(feature_dim, proj_dim=proj_dim, attn_hidden=attn_hidden)
 
-    def forward(self, x, xtype):
+    def forward(self, x):
         feat_map = self.base_model(x)
 
         logit, map_att, map_cont = self.head(feat_map)

@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from results_analysis import create_dictionary_from_results, dict_to_df_fold_seed_metric
+from analysis_utils import create_dictionary_from_results, dict_to_df_fold_seed_metric
 
 
 def _darken(color, factor=0.65):
@@ -45,8 +45,7 @@ def performance_with_without_expl_plot_bars(
     d = mean_orig.merge(mean_expl, on=["Experiment", "Model"], how="inner")
 
     models = sorted(d["Model"].unique())
-    exps = ['Bl', 'P1', 'P2', 'A1', 'A2']# d["Experiment"].unique()
-    print(exps)
+    exps = ['Bl', 'P1', 'P2', 'A1', 'A2']
 
     x = np.arange(len(models))
 
@@ -77,60 +76,10 @@ def performance_with_without_expl_plot_bars(
     ax.set_xticklabels(models)
     ax.set_xlabel("Model")
     ax.set_ylabel(metric)
-    # ax.set_title(title or f"{metric}: mean over folds�seeds (outer) vs explainability-weighted (inner)")
     ax.legend(title="Experiment", loc="upper left", bbox_to_anchor=(1.02, 1))
     ax.grid(axis="y", alpha=0.25)
     return ax
 
-
-def create_multiple_scatterplot_std_vs_exp(df_dict, metric, size, hue):
-    fig, axes = plt.subplots(2, 3, figsize=(12, 6))
-
-    fig.delaxes(axes[1][2])
-    axes_flatten = axes.flatten()
-
-    global_min_std = 100
-    global_max_std = -100
-
-    global_min_exp = 100
-    global_max_exp = -100
-
-    margin = 0.02
-
-    models = ['DenseNet', 'EfficientNet', 'MobileNet', 'ResNet18', 'ResNet50']
-    
-    for i, (cat, df) in enumerate(df_dict.items()):
-    # for i, model in enumerate(models):
-        # df_model = df.loc(axis=0)[:,model]
-        global_min_std = min(global_min_std, df.loc(axis=1)[metric].min())
-        global_max_std = max(global_max_std, df.loc(axis=1)[metric].max())
-        global_min_exp = min(global_min_exp, df.loc(axis=1)[metric+'_exp'].min())
-        global_max_exp = max(global_max_exp, df.loc(axis=1)[metric+'_exp'].max())
-
-        
-        if i==len(models)-1:
-            # axes_flatten[i].legend(loc="upper left", bbox_to_anchor=(1.02, 1))
-            legend = 'brief'
-        else:
-            legend = False
-
-        axes_flatten[i] = sns.scatterplot(data=df, x=metric, y=metric+'_exp', size=size, hue=hue, legend=legend,ax=axes_flatten[i], s=60, alpha=0.7, sizes=(60,200))
-        axes_flatten[i].set_title(cat)
-
-    global_min_std -= margin
-    global_max_std += margin
-    global_min_exp -= margin
-    global_max_exp += margin
-
-    for i in range(len(models)):
-        axes_flatten[i].set_xlim(global_min_std, global_max_std)
-        axes_flatten[i].set_ylim (global_min_exp, global_max_exp)
-
-
-    symbols, labels = axes_flatten[4].get_legend_handles_labels()
-    axes_flatten[4].get_legend().set_visible(False)
-    fig.legend(symbols, labels, loc="upper left", bbox_to_anchor=(0.72, 0.48))
-    return fig, axes
 
 def plot_model_threshold_heatmap(
     df,
@@ -176,25 +125,21 @@ def plot_model_threshold_heatmap(
     if cbar:
         cbar_ax.tick_params(labelsize=12)
 
-    # Etiquetas inferiores: thresholds
     lower_labels = [str(t) for _m in model_order for t in thresholds]
     ax.set_xticklabels(lower_labels, rotation=0)
     ax.set_ylabel("Data configuration", y=0.4, fontsize=12)
     ax.set_xlabel("Energy threshold", fontsize=12)
     ax.tick_params(axis='both', labelsize = 12)
 
-    # Separadores entre bloques de modelos
     n_thr = len(thresholds)
     for k in range(1, len(model_order)):
         ax.axvline(k * n_thr, color='white', lw=2)
 
-    # Etiquetas superiores: modelos
     y_top = -0.2
     for i, model in enumerate(model_order):
         center = i * n_thr + n_thr / 2
         ax.text(center, y_top, model, ha='center', va='bottom', fontsize=12)
 
-    # Ajustar l�mites para que se vea el texto superior
     ax.set_ylim(len(full.index), -1.0)
 
 if __name__ == "__main__":
@@ -219,26 +164,12 @@ if __name__ == "__main__":
     df_all = pd.concat([df_std, df_exp_temp], axis=1)
 
     df_mean_metrics = df_all.groupby(["Experiment","Model"]).agg("mean")
+    print(df_mean_metrics)
 
-    df_mean_metrics_effNet = df_mean_metrics.loc(axis=0)[:,"EfficientNet"].reset_index(level=1, drop=True)
-
-    idx_min = df_mean_metrics_effNet.idxmin()
-    idx_max = df_mean_metrics_effNet.idxmax()    
-    df_mean_metrics_effNet = df_mean_metrics_effNet.round(2)
-    for col, row_idx in idx_min.items():
-        val = df_mean_metrics_effNet.loc[row_idx, col]
-        new_val = f"{{\color{{red}} {val:.2f} }}"
-        df_mean_metrics_effNet.loc[row_idx, col] = new_val
-
-    for col, row_idx in idx_max.items():
-        val = df_mean_metrics_effNet.loc[row_idx, col]
-        new_val = f"{{\color{{mygreen}} {val:.2f} }}"
-        df_mean_metrics_effNet.loc[row_idx, col] = new_val
-
-    latex_table = df_mean_metrics_effNet.to_latex(escape=False)
-    latex_table = re.sub(' +', ' ', latex_table)
-    print(latex_table) #float_format="%.2f"))
-    
+    # latex_table = df_mean_metrics.to_latex(escape=False)
+    # latex_table = re.sub(' +', ' ', latex_table)
+    # print(latex_table) 
+   
 
     fig, axes = plt.subplots(2, 2, figsize=(12, 6))
 
@@ -248,22 +179,17 @@ if __name__ == "__main__":
     # Flatten the axes array for easy iteration
     axes_flat = axes.flatten()
 
-    # df_std_models = df_std.loc(axis=0)[:, ['DenseNet','EfficientNet','ResNet50']]
-    # df_exp_models = df_exp.loc(axis=0)[:, ['DenseNet','EfficientNet','ResNet50']]
     figure_metrics = ["Recall", "F1-score", "AUC", "AUPRC"]
-    # figure_metrics = ["f1", "auc-roc"]    
     for idx, metric in enumerate(figure_metrics):
         axes_flat[idx] = performance_with_without_expl_plot_bars(axes_flat[idx], df_std, df_exp, metric = metric)
 
         axes_flat[idx].set_ylabel(metric, fontsize=11)
-        # axes_flat[idx].set_xlabel("Backbone", fontsize=12)
         axes_flat[idx].set_xlabel("")
         axes_flat[idx].tick_params(axis='both', labelsize = 12)
 
 
         axes_flat[idx].legend_.remove()
 
-    # Crear una sola leyenda
     handles, labels = axes_flat[0].get_legend_handles_labels()
 
     fig.legend(
@@ -280,9 +206,7 @@ if __name__ == "__main__":
     plt.show()
 
 
-
     #Plots for explainability penalization
-
     vmin = 0
     vmax = 1
 
@@ -311,15 +235,12 @@ if __name__ == "__main__":
             df_penalization = df_penalization.to_frame(name=metric+'_'+str(thresholds[idx]))
 
             mean_penalization = (
-                    df_penalization.groupby(["Experiment", "Model"])#[metric]#, as_index=False)[metric]
+                    df_penalization.groupby(["Experiment", "Model"])
                     .mean().rename(columns={metric: 'f1_'+str(thresholds[idx])})
                 )
             df_penalization_all.append(mean_penalization)
         
         df_penalization_all = pd.concat(df_penalization_all, axis=1)
-
-        # print(df_penalization_all)
-        # axes = axes.reshape(1, -1)
 
         plot_model_threshold_heatmap(
             df_penalization_all,
@@ -341,80 +262,4 @@ if __name__ == "__main__":
     plt.tight_layout(rect=[0, 0, 0.88, 1])
     plt.savefig("metrics_penalization_"+sys.argv[2]+".png")    
     plt.show()
-
-
-
-
-
-
-
-# ##########################
-
-
-
-#     # METRIC vs METRIC WITH EXPLAINABILITY for models
-#     models = ['DenseNet', 'EfficientNet', 'MobileNet', 'ResNet18', 'ResNet50']
-
-#     df_models = dict()
-#     for model in models:
-#         df_models[model] = df_all.loc(axis=0)[:,model]
-
-#     fig, axes = create_multiple_scatterplot_std_vs_exp(df_models, metric, size='Fold', hue='Experiment')
-
-#     plt.tight_layout()
-#     plt.show()
-
-
-
-    # # HEATMAP COMPARING WITH THE BASELINE
-
-    # mean_orig = (
-    #     df_all.groupby(["Experiment", "Model", "Seed"])#[metric]#, as_index=False)[metric]
-    #     .mean()
-    #     # .rename(columns={metric: "value_orig"})
-    # )
-
-
-    # mean_baseline = mean_orig.loc(axis=0)['Baseline']
-
-    # diff_baseline = mean_orig - mean_baseline
-
-    # df_dict_diff_with_baseline = dict()
-    # global_min = 100
-    # global_max = -100
-
-    # for m in models:
-
-    #     diff_model = diff_baseline.loc(axis=0)[m]
-
-    #     metric_exp = metric+'_exp'
-
-    #     diff_model_metric = diff_model.loc(axis=1)[[metric_exp]]
-    #     global_min = min(global_min, diff_model.loc(axis=1)[metric_exp].min())
-    #     global_max = max(global_min, diff_model.loc(axis=1)[metric_exp].max())
-    #     df_dict_diff_with_baseline[m] = diff_model_metric[metric_exp].unstack("Experiment")#.pivot(index = 'Experiment', columns = 'Seed', values = metric)
-
-
-    # fig, axes = plt.subplots(2, 3, figsize=(12, 6))
-    # fig.delaxes(axes[1][2])
-
-    
-    # # Flatten the axes array for easy iteration
-    # axes_flat = axes.flatten()
-
-    # global_min = -global_max
-    # global_min -= 0.05
-    # global_max += 0.05
-
-    # for i, m in enumerate(models):
-    #     axes_flat[i] = sns.heatmap(df_dict_diff_with_baseline[m], vmin=global_min, 
-    #                                vmax=global_max, ax = axes_flat[i], cmap='coolwarm')
-    #     axes_flat[i].set_title(m)
-    # plt.tight_layout()
-    # plt.show()
-
-    # pd.set_option('display.max_rows', None)
-    # print(mean_orig)
-    # print(mean_baseline)
-    # print(diff_model_metric)
 

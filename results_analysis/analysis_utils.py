@@ -110,18 +110,16 @@ def create_dictionary_from_results(path_to_metrics, lesion, energy_threshold=0.7
     
     x_method_name_tr = {"contribution": "$M_C^{+}$", "attention": "Att", "grad_cam_cnn": "GC-Bk", 
                         "grad_cam_proj": "GC-Prj", "grad_cam_att": "GC-Att",
-                        "eigen_cam_cnn": "EC-Bk", "eigen_cam_proj": "EC-Prj", "eigen_cam_att": "EC-Att"}
+                        "eigen_cam_cnn": "EC-Bk", "eigen_cam_proj": "EC-Prj", "eigen_cam_att": "EC-Att",
+                        "shapley_cam_cnn": "SC-Bk", "shapley_cam_proj": "SC-Prj", "shapley_cam_att": "SC-Att"}
 
-    # print(metrics_files)
     experiments = {"standard": dict(), "explain": dict(), 'XAI': dict()}
     for f in metrics_files:
-        # exp_feats = f.replace("Final_metrics_runs__Nodulo_", "").split('_')
         exp_feats = f.replace("Final_metrics_runs__"+lesion+"_", "").split('_')
         orig_exp_name = '_'.join(exp_feats[:-1])
         if orig_exp_name not in exp_name_tr.keys():
             continue
         exp = exp_name_tr[orig_exp_name]
-        # exp = '_'.join(exp_feats[:-1])
         K = exp_feats[-1].split('.')[0]
         print(f)
         with open(os.path.join(path_to_metrics, f)) as jfile:
@@ -157,7 +155,9 @@ def create_dictionary_from_results(path_to_metrics, lesion, energy_threshold=0.7
                     experiments[mtype][exp][model_name][seed][K] = {x_method_name_tr["contribution"]: {}, x_method_name_tr["attention"]: {},
                                                                     x_method_name_tr["grad_cam_cnn"]: {}, x_method_name_tr["grad_cam_proj"]: {}, 
                                                                     x_method_name_tr["grad_cam_att"]: {}, x_method_name_tr["eigen_cam_cnn"]: {}, 
-                                                                    x_method_name_tr["eigen_cam_proj"]: {}, x_method_name_tr["eigen_cam_att"]: {}}
+                                                                    x_method_name_tr["eigen_cam_proj"]: {}, x_method_name_tr["eigen_cam_att"]: {},
+                                                                    x_method_name_tr["shapley_cam_cnn"]: {}, x_method_name_tr["shapley_cam_proj"]: {},
+                                                                    x_method_name_tr["shapley_cam_att"]: {}}
                     for x_metric in XAI_metrics:
                         for x_method, x_res in XAI_metrics[x_metric].items():
                             if x_method not in x_method_name_tr.keys():
