@@ -50,7 +50,7 @@ For the existing lesions, the field "label" includes a list of the regions where
 
 ### Dataset preparation
 
-To prepare the dataset, it is first necessary to download the original data from Vindr-Mammo and InBreast:
+To prepare the dataset, it is first necessary to download the original data from Vindr-Mammo and INbreast:
 
 * For VinDr-Mammo, you can access the data from here: [https://physionet.org/content/vindr-mammo/1.0.0/](https://physionet.org/content/vindr-mammo/1.0.0/)
 * InBreast dataset is available at [https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset](https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset)
@@ -60,19 +60,45 @@ Once both datasets have been downloaded and unzipped, the images composing our d
 
 ```python
 cd data_organization
-python get_dataset_images.py --dataset joined_inbreast_vindr.json --vindrdir VINDR_PATIENTS_DIRECTORY --vindrcsv VINDR_FINDING_ANNOTATIONS_FILE --inbreastdir INBREAST_IMAGES_DIRECTORY --outputdir OUTPUT_DIRECTORY
-
+python get_dataset_images.py --dataset DATASET.json --vindrdir VINDR_PATIENTS_DIRECTORY --vindrcsv VINDR_FINDING_ANNOTATIONS_FILE --inbreastdir INBREAST_IMAGES_DIRECTORY --outputdir OUTPUT_DIRECTORY
 ```
 
+This script creates a folder named "outDat" in the directory specified by the *`outputdir`* argument, containing all the dataset images in PNG format. 
 
-### Data organization
+Some of these images contain letters indicating the laterality and projection of the mammogram, which can negatively affect model training. To remove these letters and obtain clean images, use the "cleanLetters.py" script located in "data_organization" as follows:
 
-Once the dataset is prepared, a K-Fold split is implemented to account for data variability and ensure more robust evaluation results.
+```python
+python cleanLetters.py PATH_TO_THE_DATASET_IMAGES
+```
+
+Additionally, our dataset includes several versions of each image as result of applying different geometric transformations. To complete the dataset preparation stage, these additional versions should be generated running the script "data_augmentation/augment_dataset.py":
+
+
+```python
+cd data_augmentation
+python augment_dataset.py --dataset DATASET.json --dataroot PARENT_DIRECTORY_OF_outDat
+```
+
+### Data splitting
+Once the dataset is prepared, it has to be splitted into train/validation/test sets. We provide two different scripts for this splitting in "data_organization": one producing a single partitioning and another one for K-Fold cross validation. To ensure results' reproducibility, both scripts require a random seed as argument. They can be run as follows:
+
+For a single partitioning, run the following command:
+```python
+cd data_organization
+python train_val_test_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY```
+
+Alternatively, a K-Fold split can be generated with "kfold_split.py":
+
+```python
+cd data_organization
+python kfold_split.py --dataset DATASET.json --seed SEED --positive_classes LESION_NAME --split_root SPLIT_DIRECTORY```
+
+This command generates a 5-fold stratified split with the following organization:
 
 ```bash
 json_splits/
-└── Positive_class_name/
-    └── Chosen_seed/
+└── lesion_name/
+    └── chosen_seed/
         ├── K1/
         │   ├── joined_dataset_training_...json
         │   ├── joined_dataset_validation_...json
@@ -82,9 +108,6 @@ json_splits/
         ├── K4/ 
         └── K5/ 
 ```
-The `data_organization/json_splits` folder contains all folders for each positive class and seed with three different json files for training, validation and test.
-The format of these files is the same as `joined_dataset.json`.
-
 
 ### Data Augmentation and geometry transformation
 
@@ -121,10 +144,7 @@ testDebug: True
 In the `configuration_files/augment_transform_` directory there are several `YAML` example files to load and modify.
 
 
-
-
-
-## Model Execution: Training and Inference
+## Training
 ### Models structures
 This repository contains some of the most commonly used models in medical imaging classification to train with the combined dataset, all of them included in `models/base_models_final.py`, all of them use pre-trained weights of `IMAGENET1K_V1` except CustomResNetBinary50, which uses `IMAGENET1K_V2`.
 
@@ -173,7 +193,7 @@ bestModels/
 
 
 
-### Baseline: Model test/inference
+## Evaluation
 
 Once the model is trained, the script `get_model_metrics.py` is executed to load the best model and configs by `argparse` and configuration file in `configuration_files/augment_transform_` to generate the metrics for the subsequent analysis of the results.
 
@@ -222,7 +242,7 @@ Metrics_run/
         └── Final_metrics_runs_copy_clahe_topHat_K5.jsonl
 ```      
 
-## Visual analysis representation
+## Results' analysis
 
 This repository contains several tools to make a visual representation of the metrics in the json files from `Metrics_runs/`.
 

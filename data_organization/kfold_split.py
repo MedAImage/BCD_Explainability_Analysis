@@ -1,18 +1,10 @@
 import os
-import sys
 import json
 import random
 import argparse
 from collections import defaultdict
-import itertools
+from train_val_test_split import dataset_from_patients
 
-
-
-def juntar_imagenes(pacientes_dict, ids):
-    d = {}
-    for pid in ids:
-        d.update(pacientes_dict[pid])
-    return d
 
 
 def kfold_split(pacientes_dict, N = 5):
@@ -46,22 +38,15 @@ def create_kfold_train_val_test(kfold_pos, kfold_neg, pacientes_positivos, pacie
         val_neg = train_neg[ini_val_neg:]
         train_pos = train_pos[:ini_val_pos]
         train_neg = train_neg[:ini_val_neg]
-        # ksize_pos = len(kfold_pos[k])
-        # ksize_neg = len(kfold_neg[k])
-        # val_pos = kfold_pos[k][:ksize_pos//2]
-        # val_neg = kfold_neg[k][:ksize_neg//2]
         test_pos = kfold_pos[k]
         test_neg = kfold_neg[k]
 
-        print('Fold', k, "train", len(train_pos), len(train_neg), "val", len(val_pos), 
-                len(val_neg), "test", len(test_pos), len(test_neg))
-
-        d_training = juntar_imagenes(pacientes_positivos, train_pos)
-        d_training.update(juntar_imagenes(pacientes_negativos, train_neg))
-        d_validation = juntar_imagenes(pacientes_positivos, val_pos)
-        d_validation.update(juntar_imagenes(pacientes_negativos, val_neg))
-        d_test = juntar_imagenes(pacientes_positivos, test_pos)
-        d_test.update(juntar_imagenes(pacientes_negativos, test_neg))
+        d_training = dataset_from_patients(pacientes_positivos, train_pos)
+        d_training.update(dataset_from_patients(pacientes_negativos, train_neg))
+        d_validation = dataset_from_patients(pacientes_positivos, val_pos)
+        d_validation.update(dataset_from_patients(pacientes_negativos, val_neg))
+        d_test = dataset_from_patients(pacientes_positivos, test_pos)
+        d_test.update(dataset_from_patients(pacientes_negativos, test_neg))
         train_sets.append(d_training)
         val_sets.append(d_validation)
         test_sets.append(d_test)
@@ -76,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, required=True, help='Json file with the whole dataset')
     parser.add_argument("--seed", type=int, default=76014, help="Random seed")
     parser.add_argument("--positive_classes", type=str, nargs='+', help='List of positive classes (Nodulo, Calc_tip_benig)')
-    parser.add_argument("--json_root", type=str, default=".", help="Root path to the json checkpoints splits")
+    parser.add_argument("--split_root", type=str, default=".", help="Root path to the json checkpoints splits")
 
     args = parser.parse_args()
 
@@ -116,7 +101,7 @@ if __name__ == "__main__":
 
     suffix = '_'.join(args.positive_classes) + '_' + str(args.seed)
 
-    json_checkpoint_path = os.path.join(args.json_root, 'json_splits')
+    json_checkpoint_path = os.path.join(args.split_root, 'json_splits')
     if os.path.exists(json_checkpoint_path) is False:
         os.makedirs(json_checkpoint_path)
 
@@ -130,10 +115,6 @@ if __name__ == "__main__":
         os.makedirs(seed_folder)
 
     N_fold = len(train_sets)
-
-    print(f"Pacientes positivos: {len(pacientes_positivos)}")
-    print(f"Pacientes negativos: {len(pacientes_negativos)}")
-
 
     for k in range(N_fold):
         k_folder = os.path.join(seed_folder, 'K'+str(k+1))
@@ -150,6 +131,6 @@ if __name__ == "__main__":
             json.dump(test_sets[k], f, indent=4)
 
         print("--- ", k+1, " ---")
-        print(f"Train: {len(train_sets[k])} imágenes")
-        print(f"Val:   {len(val_sets[k])} imágenes")
-        print(f"Test:  {len(test_sets[k])} imágenes")
+        print(f"Train: {len(train_sets[k])} images")
+        print(f"Val:   {len(val_sets[k])} images")
+        print(f"Test:  {len(test_sets[k])} images")
