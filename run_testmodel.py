@@ -7,15 +7,13 @@ PROJECT_DIRPATH = os.path.dirname(os.path.abspath(__file__))
 
 
 parser = argparse.ArgumentParser()
-# parser.add_argument("--json_suffix", type=str, default=None,
-#                     help="Suffix to append to metrics jsonl filename")
 parser.add_argument("--models_path", type=str, default=None,
                     help="Path to the models directory")
-# parser.add_argument("--testset", type=str, default=None,
-#                     help="Test set json file")
 parser.add_argument("--positive_class", type=str, default=None,
                     help="Name of the positive class")
 
+parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
+parser.add_argument("--data_split_path", type=str, default=".", help="Path to the K-Fold split")
 
 
 args = parser.parse_args()
@@ -26,8 +24,9 @@ models = os.listdir(models_path)
 models.sort()
 
 positive_class = args.positive_class
+dataroot = args.dataroot
+data_split_path = args.data_split_path
 
-# testset = args.testset
 
 for modelfile in models:
 
@@ -44,12 +43,9 @@ for modelfile in models:
     # print('Bias', Bias)
     # print('----')
 
-    testset = f'data_organization/json_splits/{positive_class}/76014/{K}/joined_dataset_test_{positive_class}_76014.json'
+    testset = f'{data_split_path}/{K}/joined_dataset_test_{positive_class}_76014.json'
 
     augment_config = "augment_transform_"+suffix+".yaml"
-    # if suffix!='copy_copy_copy':
-    #     print('Skipping', modelfile)
-    #     continue
 
     model_weights_path = os.path.join(models_path, modelfile)
 
@@ -59,11 +55,11 @@ for modelfile in models:
             "--seed", seed, ###
             "--model", model_name, ###
             "--model_weights_path", model_weights_path,
-            "--dataroot", PROJECT_DIRPATH,
+            "--dataroot", dataroot,
             "--positive_classes", positive_class,
-            "--metrics_run_path", "XAI_final_metrics",
-            "--augmentation_config_path", augment_config,
-            "--json_suffix", "_"+positive_class+"_"+suffix+"_"+K#+"_"+Bias
+            "--metrics_run_path", "ALL_metrics",
+            "--augmentation_config_path", 'configuration_files/augment_transform_/'+augment_config,
+            "--json_suffix", "_"+positive_class+"_"+suffix+"_"+K
         ]
 
     print(f"Running: {' '.join(cmd)}\n")

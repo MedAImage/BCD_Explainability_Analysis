@@ -3,17 +3,13 @@ import re
 import argparse
 import os
 
-PROJECT_DIRPATH = os.path.dirname(os.path.abspath(__file__))
-
-
 parser = argparse.ArgumentParser("Train all the architectures using a K-Fold split, several data configurations and 5 random seeds")
 parser.add_argument("--positive_class", type=str, required=True,
                     help="Name of the positive_class")
 parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
 parser.add_argument("--data_split_path", type=str, default=".", help="Path to the K-Fold split")
 
-parser.add_argument("--device", type=str, required=True,
-                    help="Device (cuda:0, cuda:1)")
+parser.add_argument("--device", type=str, required=True, help="Device (cuda:0, cuda:1)")
 args = parser.parse_args()
 
 models = [
@@ -72,8 +68,8 @@ for seed in seeds:
     for i in range(5):
         k = 'K'+str(i+1)
 
-        trainset = f'{data_split_path}/{positive_class}/76014/{k}/joined_dataset_training_{positive_class}_76014.json'
-        valset = f'{data_split_path}/{positive_class}/76014/{k}/joined_dataset_validation_{positive_class}_76014.json'
+        trainset = f'{data_split_path}/{k}/joined_dataset_training_{positive_class}_76014.json'
+        valset = f'{data_split_path}/{k}/joined_dataset_validation_{positive_class}_76014.json'
 
 
         match = re.search(r'_(\d+)\.json$', trainset)
@@ -85,17 +81,17 @@ for seed in seeds:
             for suffix, augm_file in zip(json_suffix, augment_files):
                 cmd = [
                     "python3", "train.py",
-                    "--number_of_epochs", "10",
-                    "--patience", "1",
+                    "--number_of_epochs", "100",
+                    "--patience", "10",
                     "--model", model,
-                    "--batch_size", "8",
+                    "--batch_size", "16",
                     "--seed", str(seed),
                     "--seed_split", str(seed_split),
                     "--trainset", trainset,
                     "--valset", valset,
                     "--positive_classes", positive_class,
                     "--dataroot", dataroot,
-                    "--augmentation_config_path", augm_file,
+                    "--augmentation_config_path", 'configuration_files/augment_transform_/'+augm_file,
                     "--device", device
                 ]
 

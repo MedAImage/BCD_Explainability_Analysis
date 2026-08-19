@@ -156,7 +156,7 @@ To train a model, `use *train.py*, specifying the data and training configuratio
 
 * --trainset: path to the JSON file containing the training set.
 * --valset: path to the JSON file containing the validation set. This set is used for early-stopping.
-* --dataroot: path to the directory containing the images' directory (*outDat*).
+* --dataroot: path to the directory containing the images' folder (*outDat*).
 * --model: backbone architecture used (CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, ...)
 * --augmentation_config_path: path to the data configuration file.
 * --batch_size: size of the batches used during training.
@@ -184,68 +184,63 @@ bestModels/
         .
         └── CustomResNetBinary_seed_17143_copy_clahe_topHat5x5_K5.pth
 ```      
+### Training models' with K-Fold cross validation
 
+The experiments reported in our work evaluate different model architectures as well as different data and training conditions using K-Fold cross-validation. The trained models are available at this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc).
+
+To reproduce the experiments, you can run the script *run_trainings_kfold.py* for each type of lesion. The following arguments has to be specified:
+
+* --positive_classes: name of the lesion acting as the positive class.
+* --dataroot: path to the directory containing the images' folder (*outDat*).
+* --data_split_path: path to the directory containing the K-Fold split.
+* --device: device used for training.
+
+The script trains a total of 625 models per lesion type, varying the backbone, training seed, data configuration, and dataset split. Each model's filename includes a suffix indicating the data configuration and the split number. The script can be modified to reduce the number of training runs and thus avoid an excessive number of executions.
 
 ## Evaluation
 
-Once the model is trained, the script `get_model_metrics.py` is executed to load the best model and configs by `argparse` and configuration file in `configuration_files/augment_transform_` to generate the metrics for the subsequent analysis of the results.
+Once a model is trained, it can be evaluated using *get_model_metrics.py*. This script generates a report in JSON format contaning different metrics: standard evaluation metrics (precision, recall, F1-score, ...), explainability-aware versions of those metrics as well as metrics used to assess the fidelity and quality of the generated contribution maps.
 
-To execute a single test process you can write on terminal:
+To run the script, you must specify the following arguments:
 
-```bash
-python get_model_metrics.py --testset <path> --model <string value> --metrics_run_path <path> --json_suffix <string value> --augmentation_config_path <path>
-```
-These arguments, as well as in `train.py`, are the minimal editable ones to make a baseline execution. All other arguments are detailed in their "help" line inside the code.
+* --testset: path to the JSON file containing the test set.
+* --dataroot: path to the directory containing the images' folder (*outDat*).
+* --model: backbone architecture.
+* --model_weights_path: path to the model file.
+* --seed: random seed used during the model training.
+* --positive_classes: lesion name used as target class during the model training.
+* --augmentation_config_path: data configuration file used for training the model.
+* --metrics_run_path: path to the directory where the metrics' file will be saved.
+* --json_suffix: optional suffix to be added to the name of the metrics' file.
 
-This script returns the necessary tools to make the propper evaluation and analysis of the best possible model:
-* `Final_metrics_runs.jsonl`: Or `Final_metrics_runs_{suffix}.jsonl` if you use the argument. this file contains all the calculated metrics for the analysis(traditional quantitative metrics and explainability metrics).
-* `false_positives.txt`: Additional file generated with the list of the names that were classified as positives when they were negatives, for debugging purpose only.
-* Generate images in a folder called `./images_against_posthoc/`, this folder includes the original mammographies and the different heatmaps generated when the visualization is activated and decided to save the files pressing `s` key.
+Metrics are saved in the specified folder using the filename *Final_metrics\_runs\_{JSON_SUFFIX}.jsonl*, with {JSON_SUFFIX} being the string specified as argument in *--json_suffix*. In case the file alreade exists, the new metrics are added at the end of the file.
 
+Additionally, the script allows for visualizing of the explanation maps and comparison with several CAM methods. 
 
-### Automated K-Fold Execution Pipeline: K-Fold model training and inference
+Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the `[pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git)` repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py*(function *scale_cam_image*); this normalization is otherwise performed by the script provided in our repository after obtaining some correlation metrics. 
 
-This section describes how to execute the full pipeline to conduct the whole experiments using the K-Fold Cross_Validation through training and use them in inference.
-
-The `run_trainings_kfold.py` is the principal script to execute training runs, its function is to perform and execute `train.py` through all K-Folds, models, seeds and configuration files mentioned before and implemented in the code, saving all data needed to perform the inference step. The script needs two key arguments to run: the positive class and the GPU device number
-
-```bash
-python run_trainings_kfold.py --positive_class <string value> --device <string value>
-```
-
-For the inference step, the `run_testmodel.py` script execute `get_model_metrics.py` in the same way that `run_trainings_kfold.py`, loading all the variables, methods and paths needed from `train.py` and the best models from the `bestModels/` folder.
-
-```bash
-python run_testmodel.py --models_path <path> --positive_class <string value>
-```
-
-For each run of this `run_testmodel.py` a `.json` file described in `baseline` section is generated and saved in the `Metrics_run` directory with the following structure:
+To visualize the maps, it is necessary to add the *--show_maps*`option to the list of arguments. Additionally, to obtain comparative metrics with CAM methods, you must specify the *--compare_cam*` argument. If both arguments are enabled, the CAM maps are included in the visualization.
 
 
+### Evaluation of all trained models
 
-```bash
-Metrics_run/
-└── Chosen_seed/
-    └── Positive_class_name/
-        ├── Final_metrics_runs_copy_clahe_topHat5x5_K1.jsonl
-        ├── Final_metrics_runs_copy_clahe_topHat5x5_K2.jsonl
-        .
-        .
-        .
-        └── Final_metrics_runs_copy_clahe_topHat_K5.jsonl
-```      
+As with training, all models trained in our experiments for each type of lesion can be evaluated using a single script. Specifically, you can use *run_testmodel.py* with the following arguments: 
+
+* --models_path: path to the directory containing all the trained models.
+* --positive_classes: name of the lesion acting as the positive class.
+* --dataroot: path to the directory containing the images' folder (*outDat*).
+* --data_split_path: path to the directory containing the K-Fold split.
+* --device: device used for training.
+
+The script creates a directory called *ALL_metrics* containing a JSONL file for each data split. Each file includes the evaluation metrics for all the models trained using the corresponding split. 
 
 ## Results' analysis
 
 This repository contains several tools to make a visual representation of the metrics in the json files from `Metrics_runs/`.
 
-* `results_analysis.py`: This is the key script for the analysis, works as an internal library and consist of reading the metrics information from the `.json` files and return the python structures with all the data for the rest of scripts to process it. Its output is a nested dictionary divided in 3 different blocks.
-  1. standard: For classic quantitative metrics (Precision, Recall, F1-Score, Acc, AUC, AUPRC).
-  2. explain: For the quantitative metrics weighted by the energy threshold.
-  3. XAI: For the qualitative explainability metrics (Pointing Game, Energy, Correlations, etc.)
-* `analyze_performance_results.py`: Evaluates the clinical mean performance of the models and analyse how much this performance fades when explainability metrics weigh the classical metrics. To illustrate this, the script generates a LaTeX table with all numeric results, a bar charts to compare standard performance versus the weighed by the explainability, and heatmaps detailing the penalization of F1-Score and AUC per architecture, threshold and data configurations.
-* `analyze_stability_results.py`: Evaluates the stability and robustness of the models analysing through the different K-Folds and seeds. To visualize this, the script generates a heatmap comparing the standard deviation from F1-Score and the AUC of the standard prediction versus the weighed by explainability. Also generates swarmplots to detect the distribution and subsequent dispersion for each point of data, allowing to check if a model is stable and consistent through all possible configuration runs. 
-* `analyze_xai_results.py`: Evaluates the precision and quality of the XAI methods, analysing how much the heatmaps correspond to the real medical lesion coordinates. For this purpose, generates a LaTeX table with the mean and standard deviation from Spearman correlation for each architecture and explainability method. Adding to this, a boxplot compares the pointing game accuracy with the post-hoc methods and  a swarmplot is created to visualize which fraction of energy from each map is inside the real lesion region through  different thresholds.
+* `analyze_performance_results.py`: analyzes the performance of the models using standard and explainability-aware metrics.To illustrate this, the script generates a table with all numeric results, a bar charts to compare standard and explainability-aware metrics, and heatmaps detailing the penalization of F1-Score and AUC per architecture, energy threshold and data configurations.
+* `analyze_stability_results.py`: analyzes the stability and robustness of the models through the different K-Folds and seeds. To visualize this, the script generates a heatmap comparing the standard deviation of F1-Score and AUC in their standard and explainability-aware versions. Also generates swarmplots depicting the effect of different random seeds and data partitioning in the performance of the models.
+* `analyze_xai_results.py`: analyzes the fidelity and quality of XAI methods by evaluating the correspondence between explanation maps and model predictions, as well as the alignment of highlighted image regions with the data annotations. For this purpose, it generates a table with the mean and standard deviation of the Spearman correlation for each architecture and explainability method. In addition, it generates a boxplot comparing the pointing game accuracy of the different methods, and a swarmplot showing the ROI energy fraction provided by each explanation map using different architectures and energy thresholds.
 
 
 If you need any help or have any suggestions, please contact us:

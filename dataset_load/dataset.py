@@ -39,7 +39,7 @@ def normal_transform():
 
 ################## LESION DATASET ################## 
 class lesionDataset(Dataset):
-    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 10000, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
+    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 1000000, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
         
         # fix_seed(seed)
         self.dataPath = dataPath
@@ -86,7 +86,7 @@ class lesionDataset(Dataset):
         imageDontreaded = 0
         with open(dataPath, 'r') as f:
             dataset = json.load(f)
-        print(f"Total elementos en el json:{len(dataset)}")
+        print(f"Number of samples in the dataset:{len(dataset)}")
         for _, d in dataset.items():
             if len(self.data) > limit:
                 break

@@ -583,7 +583,7 @@ if __name__ == "__main__":
     parser.add_argument("--metrics_run_path", type=str, help="Path to the metrics run folder")
     parser.add_argument("--json_suffix", type=str, default=None, help="Suffix to append to metrics jsonl filename")
     parser.add_argument("--augmentation_config_path", type=str, default="augment_transform.yaml", help="Path to the augmentation config file")
-    parser.add_argument("--show_image", action='store_true', help="Show images")
+    parser.add_argument("--show_maps", action='store_true', help="Show images")
     parser.add_argument("--compare_cam", action='store_true', help="Compare with CAM methods")
     
     args = parser.parse_args()
@@ -598,5 +598,5 @@ if __name__ == "__main__":
     get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, 
                       dataroot=args.dataroot, transformsConfig=transformsConfig,
                       save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, 
-                      show_image = args.show_image, compare_cam = args.compare_cam, limit = 100)
+                      show_image = args.show_maps, compare_cam = args.compare_cam, limit = 100)
 
