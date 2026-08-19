@@ -37,20 +37,9 @@ def normal_transform():
 ])
 
 
-def rescale_image_and_rois(image, scaled_rois):
-    scale_factor = np.random.uniform(0.8, 1.2)
-    image = cv2.resize(image, None, fx=scale_factor, fy=scale_factor)
-    scaled_rois = {
-        roi_type: [[box[0] * scale_factor, box[1] * scale_factor, box[2] * scale_factor, box[3] * scale_factor]for box in boxes]
-    for roi_type, boxes in scaled_rois.items()
-    }
-
-    return image, scaled_rois
-
-
 ################## LESION DATASET ################## 
 class lesionDataset(Dataset):
-    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 100, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
+    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 10000, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
         
         # fix_seed(seed)
         self.dataPath = dataPath
