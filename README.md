@@ -126,7 +126,7 @@ This repository implements an attention-based architecture leveraging some of th
 * CustomMobileNetV3: Based on MobileNetV3 Large.
 * EfficientNetB0: Based on EfficientNet-B0.
 
-Each model has been modified by replacing their classification block with an attention-based head that provides a prediction score along with a contribution map that represents the contribution of each region to the model's prediction.
+Each model has been modified by replacing its classification block with an attention-based head that provides a prediction score along with a contribution map that represents the contribution of each image region to the model's prediction.
 
 The input of the models is a pytorch tensor of shape [B, 3, H, W] (Batch_size, Channels, Height, Width). The outputs of the model are:
 
@@ -139,7 +139,7 @@ We use different data configurations to analyze how different visual representat
 
 The data configuration used for training an evaluation must be specified in a YAML file. The fields in this file are the following:
 
-* channels: list with the processing technique applied to each channel of the image. The different techniques are:
+* channels: list of the processing techniques applied to the channels of the image. The different types of processing that can be applied per channel are:
 	* Copy: original channel.
 	* Clahe: result of applying the CLAHE filter.
 	* TopHat5x5: result of applying a white top-hat filter (5x5). It is used to enhance microcalcifications.
@@ -152,7 +152,7 @@ The configuration_files/augment_transform_ directory includes several data confi
 
 ### Model training
 
-To train a model, `use *train.py*, specifying the data and training configuration parameters as argument:
+To train a model, `use *train.py*, specifying the data and training configuration parameters as arguments:
 
 * --trainset: path to the JSON file containing the training set.
 * --valset: path to the JSON file containing the validation set. This set is used for early-stopping.
