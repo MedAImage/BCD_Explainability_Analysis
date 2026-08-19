@@ -44,7 +44,7 @@ The fields composing each entry are:
 * The path to the image in png format (field "image").
 * Lists of the different lesions found in the image (field "label").
 
-The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(Suspicious Calcification), Calc_tip_benig (Suspicious Calcification).
+The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(microcalcifications), Calc_tip_benig (Suspicious Calcification).
 For the existing lesions, the field "label" includes a list of the image regions where they are located (x, y, w, h).
 
 
