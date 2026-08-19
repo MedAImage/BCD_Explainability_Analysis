@@ -4,7 +4,7 @@ Official implementation of the paper "Explainability-aware evaluation of CNNs fo
 This work presents a framework to evaluate CNN-based models that jointly considers predictive performance and spatial explainability. In particular, we define an explainability score that quantifies the extent to which relevant activations are concentrated within expert-annotated regions. Based on this score, we reformulate conventional evaluation metrics to incorporate spatial explainability into performance assessment. Since evaluation reliability depends on the fidelity of the explanation maps, we also introduce an attention-based architecture that generates spatial contribution maps directly linked to the prediction process. 
 
 
-This repository contains all the necessary code to reproduce our experiments on breast lesion detection.
+This repository contains all the necessary code to reproduce our experiments for breast lesion detection.
 Data and results can be downloaded using this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc).
 
 
@@ -112,44 +112,13 @@ json_splits/
         └── K5/ 
 ```
 
-### Data Augmentation and geometry transformation
-
-This repository contains two types of transformation to enhance the performance of the system:
-
-1. In `data_augmentation` we have the necessary scripts to apply geometrical transformations to the data for oversampling. The `flipImages.py` script allows us to create a flipped version of every mammogram on the dataset, distinguishing them from the originals by appending `_V2` to its name. The other script `expandImages.py` applies an expansion and contraction filter on the breast to generate new examples from original data.
-2. In `utils` we include tools to apply specific transformations to highlight the target lesion:
-  - `enhance_uniform.py` provides a filter to highlight suspicious structures, focusing on masses. To achieve this, the script applies different computer vision techniques, such as tissue masks, CLAHE, etc.
-  - `transforms.py` provides different augmentation techniques and morphological filters specified in the configuration file.
-
-
-
-
-
-### Configuration-Driven Data Augmentation
-
-We use different configuration `YAML` files to perform channel-wise and lesion-wise data augmentation techniques.
-
-* For each channel in the image, apply different techniques independently, building a 3-channel mammography image where each channel has a different process.
-```yaml
-channels:
-  - {Copy: 100}
-  - {Clahe: 100}
-  - {EnhanceUniform: 100} # Or TopHat in Microcalcifications
-```
-* We use oversampling techniques to increase the number of samples for better performance.
-```yaml
-flipped: True
-expanded: True
-expanded_cropped : False
-expand_factors_cropped: [1.25, 0.8]
-testDebug: True
-```
-In the `configuration_files/augment_transform_` directory there are several `YAML` example files to load and modify.
+The 5-fold split used in our experiments can be downloaded from the link provided in the first section.
 
 
 ## Training
-### Models structures
-This repository contains some of the most commonly used models in medical imaging classification to train with the combined dataset, all of them included in `models/base_models_final.py`, all of them use pre-trained weights of `IMAGENET1K_V1` except CustomResNetBinary50, which uses `IMAGENET1K_V2`.
+### Models' architecture
+
+This repository implements an attention-based architecture leveraging some of the most commonly used models in classification:
 
 * CustomResNetBinary: Based on ResNet-18.
 * CustomResNetBinary50: Based on ResNet-50.
@@ -157,27 +126,49 @@ This repository contains some of the most commonly used models in medical imagin
 * CustomMobileNetV3: Based on MobileNetV3 Large.
 * EfficientNetB0: Based on EfficientNet-B0.
 
-Each model has been modified integrating an `Attention-based MIL Head` replacing the global average pooling layer, allowing the model to generate the binary classification and the spatial heatmaps at the same time.
+Each model has been modified by replacing their classification block with an attention-based head that provides a prediction score along with a contribution map that represents the contribution of each region to the model's prediction.
 
-The input to the models is a pytorch tensor of shape [B, 3, H, W] (Batch_size, Channels, Height, Width). The outputs of the model are:
+The input of the models is a pytorch tensor of shape [B, 3, H, W] (Batch_size, Channels, Height, Width). The outputs of the model are:
 
 1. `Logit`: The prediction of the model, with shape [B, 1].
 2. `map_att`: The attention map from the attentional layer, with shape [B,1,H',W'].
-3. `map_imp`: Importance map or Contribution map, calculated by multiplying the attention map by the linear classifier weights and passing the result through a ReLU function, it has the same shape as `map_att`.
+3. `map_cont`: the contribution map, with shape [B,1,H',W'].
 
-### Baseline: Model training
-The `train.py` script executes all the training process, this script is designed to be executed on terminal through arguments (`argparse`). This makes modifying the training conditions much easier.
+### Data configuration
+We use different data configurations to analyze how different visual representations of the data affect model training and evaluation. Specifically, at the image level, the channels of the input images can be modified to contain different processed versions of the original mammogram. Likewise, at the dataset level, models can be trained with or without the augmented data provided by the flipped and expanded versions of the images.
 
-The custom dataset is loaded by the `lesionDataset` class defined in `dataset_load/dataset.py`. The main procedure is loading the json file from the k-fold split.
+The data configuration used for training an evaluation must be specified in a YAML file. The fields in this file are the following:
+
+* channels: list with the processing technique applied to each channel of the image. The different techniques are:
+	* Copy: original channel.
+	* Clahe: result of applying the CLAHE filter.
+	* TopHat5x5: result of applying a white top-hat filter (5x5). It is used to enhance microcalcifications.
+	* EnhanceUniform: result of applying a custom filter designed to enhance mass-type lesions.
+* flipped: boolean flag to indicate whether or not to use the flipped version of the dataset images.
+* expanded: boolean flag to indicate whether or not to use the expanded/contracted versions of the dataset images.
+
+The configuration_files/augment_transform_ directory includes several data configuration files used in our experiments.
 
 
+### Model training
 
-To execute a single training process you can write on terminal:
+To train a model, `use *train.py*, specifying the data and training configuration parameters as arguments:
 
-```bash
-python train.py --trainset <path> --valset <path> --testset <path> --config_file <path> --batch_size <value> --number_of_epochs <value> --learning_rate <value> --model <string value> [ADDITIONAL_ARGUMENTS]
-```
-The arguments in the example above are the basics to execute a baseline. To ensure that you are training a baseline project you can modify the configuration file that you are using mentioned in `configuration_files/augment_transform_`.
+* --trainset: path to the JSON file containing the training set.
+* --valset: path to the JSON file containing the validation set. This set is used for early-stopping.
+* --dataroot: path to the directory containing the images' directory (*outDat*).
+* --model: backbone architecture used (CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, ...)
+* --augmentation_config_path: path to the data configuration file.
+* --batch_size: size of the batches used during training.
+* --number_of_epochs: maximum number of epochs.
+* --patience: number of epochs to wait for loss improvement on the validation set before stopping the training.
+* --learning_rate: learning rate.
+* --positive_classes: name of the lesion acting as the positive class (use *Nodulo* for masses and *microcalcificaciones* for microcalcifications).
+* --seed: random seed used to reproduce the stochastic conditions of the training process.
+* --model_save_path: path where the model will be saved (default is *bestModels*).
+* --device: device used during the training process (default is *cuda*).
+
+
 
 This script generates a `.pth` file with the best weights trained, and are saved in the `bestModels` directory with the following structure:
 
