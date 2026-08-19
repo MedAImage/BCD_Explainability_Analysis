@@ -1,25 +1,8 @@
-# transformations:
-#  - Copy
-#  - Copy
-  # - Binarize_100_125
-  # - Binarize_125_150
-  # - Binarize_150_175
-  # - Binarize_175_200
-  # - Binarize_200_225
-  # - Binarize_225_256    
-#  - Clahe
-#  - TopHat
-#  - Gabor
-#  - Binary
 
 channels:
   - {Copy: 100}
   - {Clahe: 100}
   - {TopHat: 100}
-
-#  - {Copy: 100}
-#  - {Clahe: 100}
-#  - {EnhanceUniform: 100}
 
 flipped: True
 expanded: True
