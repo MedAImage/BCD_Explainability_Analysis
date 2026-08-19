@@ -1,11 +1,8 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader, Subset
-from torchvision import transforms
+from torch.utils.data import  DataLoader
 from models.models import  EfficientNetB0, CustomResNetBinary,  CustomResNetBinary50,  CustomDenseNet, CustomMobileNetV3
 import numpy as np
-import matplotlib.pyplot as plt
 from dataset_load.dataset import lesionDataset, data_augmentation_transform, normal_transform, collate_pad_to32
 from get_model_metrics import calculate_metrics
 import os
@@ -24,7 +21,6 @@ def load_yaml_config(file_path):
         config = yaml.safe_load(file)
     return config
 
-# METHO TO FIX THE SEEDS
 def fix_seed(seed):
     torch.manual_seed(seed)
     random.seed(seed)
@@ -33,15 +29,12 @@ def fix_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-###METHOD FOR TRAINING###
 def train(epoch = 0):
     model.train()
     running_loss = 0.0
     for inputs, _,types, labels, _ in train_data_loader:
-        #SENDING INPUT AND LABELS TO GPU
         inputs, labels = inputs.to(device), labels.to(device)
         types = types.to(device)
-        #RESETTING GRADIANTS
         optimizer.zero_grad()
         outputs, _, _ = model(inputs) #ignore maps
         loss = criterion_loss(outputs, labels)
@@ -53,7 +46,6 @@ def train(epoch = 0):
     return avg_train_loss
 
 
-###METHOD FOR VALIDATION###
 def validation (epoch = 0):
     model.eval()
     val_labels=[]
@@ -82,7 +74,6 @@ def metrics(labels, predictions):
     return acc, precision, recall, f1, auc_roc 
 
 
-
 if __name__=="__main__":
     #ARGUMENT PARSER
     parser = argparse.ArgumentParser(description="MedImage binarty classification training")
@@ -96,14 +87,12 @@ if __name__=="__main__":
     parser.add_argument("--batch_size", type=int, default=2, help="Batch size for training")
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate for the optimizer")
     parser.add_argument("--model", type=str, default="CustomResNetBinary", help="Selection of the model to train")
-    parser.add_argument("--model_weights_path", type=str, default="/bestModels", help="Path to the model weights")
     parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
     parser.add_argument("--positive_classes", type=str, nargs='+', help='List of positive classes (Nodulo, Calc_tip_benig)')
     parser.add_argument("--device", type=str, default="cuda", help="Device to use for training (e.g., cuda:1, cpu)")
     parser.add_argument("--model_save_path", type=str, default="bestModels/", help="Path to save the best model")
-    parser.add_argument("--metrics_run_path", type=str, default="Metrics_runs/", help="Path to save metrics run for test model")
     parser.add_argument("--augmentation_config_path", type=str, default="augment_transform.yaml", help="Path to the augmentation config file")
-    parser.add_argument("--json_suffix", type=str, default=None, help="Suffix to append to metrics jsonl filename")  
+    parser.add_argument("--suffix", type=str, default=None, help="Suffix to add to the model file name")  
     args = parser.parse_args()
     print(args)
 
@@ -114,7 +103,6 @@ if __name__=="__main__":
     numChannels = 3
     numtypes = 4
     learning_rate = args.learning_rate
-    model_weights_pth = args.model_weights_path
     positive_classes = args.positive_classes
     print(f"Probability threshold for classification: {probability_threshold}")
     fix_seed(args.seed)
@@ -132,10 +120,7 @@ if __name__=="__main__":
 
     inchannels = 3 
     
-    NUM_CLASSES = len(positive_classes)
-    #SETTING THE ARCHITECTURE OF THE MODEL
-
-    model_factory = {
+    model_architectures = {
         "CustomResNetBinary": CustomResNetBinary,
         "CustomResNetBinary50": CustomResNetBinary50,
         "EfficientNetB0": EfficientNetB0,
@@ -143,25 +128,15 @@ if __name__=="__main__":
         "CustomMobileNetV3": CustomMobileNetV3
     }
 
-    if args.model not in model_factory:
-        raise ValueError(f"Model {args.model} not recognized. Valid models are: {list(model_factory.keys())}")
+    if args.model not in model_architectures:
+        raise ValueError(f"Model {args.model} not recognized. Valid models are: {list(model_architectures.keys())}")
     
-    model = model_factory[args.model]()
+    model = model_architectures[args.model]()
 
     positive_classes_str = '__'.join(args.positive_classes)
     save_completeBestModel_path = os.path.join(args.model_save_path, args.seed_split, positive_classes_str)
     os.makedirs(save_completeBestModel_path, exist_ok=True)
     print(save_completeBestModel_path)
-
-    save_rootMetrics_path = args.metrics_run_path
-    if not os.path.exists(save_rootMetrics_path):
-        os.makedirs(save_rootMetrics_path)
-    save_metricsSeed_path = os.path.join(save_rootMetrics_path, args.seed_split)
-    if not os.path.exists(save_metricsSeed_path):
-        os.makedirs(save_metricsSeed_path)
-    save_completeMetrics_path = os.path.join(save_metricsSeed_path, positive_classes_str)
-    if not os.path.exists(save_completeMetrics_path):
-        os.makedirs(save_completeMetrics_path)
 
     device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -178,9 +153,8 @@ if __name__=="__main__":
     normal_data = normal_transform()
 
     train_dataset = lesionDataset(dataPath = TrainDatasetJson, positive_classes = positive_classes, transform_with_class=data_augmentation, seed = args.seed,transforms_config=transformsConfig ,dataroot=args.dataroot, withLTimeAugmentation=True)
-
     val_dataset = lesionDataset(dataPath = ValDatasetJson, positive_classes = positive_classes, transform_with_class = normal_data, seed = args.seed, transforms_config=transformsConfig ,dataroot=args.dataroot)
-    #LOADING THE DATA LOADERS AND LABELS
+
     train_data_loader = DataLoader(train_dataset, batch_size=batchSamples, shuffle=True, num_workers=4, collate_fn = collate_pad_to32)
     val_data_loader = DataLoader(val_dataset, batch_size=batchSamples, shuffle=False, num_workers=4, collate_fn = collate_pad_to32)
 
@@ -198,27 +172,21 @@ if __name__=="__main__":
     loss_increase_steps = 0
     best_loss = np.inf
 
+    save_name = os.path.join(save_completeBestModel_path, args.model)
+    if args.suffix:
+        save_route = f'{save_name}_seed_{args.seed}_{args.suffix}.pth'
+    else:
+        save_route = f'{save_name}_seed_{args.seed}.pth'
+
     #TRAINING/VALIDATION LOOP
     for epoch in tqdm(range(EPOCHS)):
         trainloss = train(epoch)
         avgValLoss, val_labels, val_predictions = validation(epoch)
         train_loss.append(trainloss)
         validation_loss.append(avgValLoss)
-        val_labels = np.concatenate(val_labels, axis = 0)
-        val_predictions = np.concatenate(val_predictions, axis = 0)
         print(f"Epoch [{epoch+1}/{EPOCHS}]||Train Loss: {trainloss:.4f}||Validation Loss: {avgValLoss:.4f}\n")
-        print("VAL-METRICS:")
-        print("Classes distribution in val_labels:", np.unique(val_labels, return_counts=True))
-        print("Classes distribution in val_predictions:", np.unique(val_predictions >= 0.5, return_counts=True))
-        acc, precision, recall, f1, auc_roc  = metrics(val_labels, val_predictions)
         if avgValLoss < best_loss:
             best_loss = avgValLoss
-            save_name = os.path.join(save_completeBestModel_path, args.model)
-            if args.json_suffix:
-                save_route = f'{save_name}_seed_{args.seed}_{args.json_suffix}.pth'
-            else:
-                save_route = f'{save_name}_seed_{args.seed}.pth'
-            print(save_name)
             print("Saving the model...")
             torch.save(model.state_dict(), f'{save_route}')
             loss_increase_steps = 0

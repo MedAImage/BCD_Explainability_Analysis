@@ -12,7 +12,7 @@ import numpy as np
 import cv2
 import random
 import math
-from utils.transforms import apply_clahe, apply_top_hat, resize_width_and_rois
+from utils.transforms import apply_clahe, apply_top_hat
 from utils.enhance_uniform import enhance_uniform
 from typing import List, Tuple
 import copy
@@ -63,19 +63,18 @@ class lesionDataset(Dataset):
         # Flags y canales desde YAML
         self.load_flipped   = bool(cfg.get("flipped",  False))
         self.load_expanded  = bool(cfg.get("expanded", False))
-        self.channels_spec  = cfg.get("channels", [])
+        self.channels  = cfg.get("channels", [])
+
 
 
         self.transforms_config = cfg.get("transformations", None)
 
         print(f"[dataset] flipped(V2): {self.load_flipped} | expanded(EXP): {self.load_expanded}")
-        print(f"[dataset] channels: {self.channels_spec if self.channels_spec else 'None'}")
+        print(f"[dataset] channels: {self.channels if self.channels else 'None'}")
 
 
         self.data = []
         self.labels =[]
-        self.positiveData =[]
-        self.negativeData =[]
         self.rois =[]
         self.image_sizes=[]
         self.CLASSES = dict()
@@ -94,7 +93,6 @@ class lesionDataset(Dataset):
         self.datasetSize = len(self.data)
 
     def load_dataset_from_json(self, dataPath, limit):
-        count = 0
         discarded=0 
         imageDontreaded = 0
         with open(dataPath, 'r') as f:
@@ -135,7 +133,7 @@ class lesionDataset(Dataset):
 
             if not os.path.exists(os.path.join(self.dataroot,d["image"])):
                 discarded += 1
-                print(f"Descartado por ruta inválida: {d['image']}")
+                print(f"Invalid path: {d['image']}")
                 continue
             label = [0] * self.NUM_CLASSES
             for l, v in d["label"].items():
@@ -148,7 +146,6 @@ class lesionDataset(Dataset):
             file_name = d['image'].split('.')[-2]
             left_or_right = file_name.split('_')[-2]
             ml_or_cc = file_name.split('_')[-1]
-            # print(f"File name: {file_name}, Left or Right: {left_or_right}, ML or CC: {ml_or_cc}")
 
             if is_flipped:
                 if left_or_right == 'L':
@@ -163,13 +160,12 @@ class lesionDataset(Dataset):
                 ('R', 'CC'): [0, 0, 0, 1]
             }
             image_type = np.array(type_dict.get((left_or_right, ml_or_cc), [0, 0, 0, 0]))
-            # print(f"Image type: {image_type}")
 
             image_type = torch.tensor(image_type, dtype=torch.float32)            
 
             image = cv2.imread(os.path.join(self.dataroot,d["image"]))
             if image is None:
-                print(f"Imagen no encontrada: {d['image']}")
+                print(f"Imagen not found: {d['image']}")
                 imageDontreaded += 1
                 continue
             rois = d["label"]
@@ -181,10 +177,9 @@ class lesionDataset(Dataset):
             
             self.rois.append(rois)            
             self.image_sizes.append(shape)
-        print(f"Total de imágenes no leidas por error{imageDontreaded}")
-        print(f"Total de elementos descartados: {discarded}")
-        print(f"Total de samples: {len(self.data)}")
-        print(f"Total de labels: {len(self.data)}")
+        print(f"Wrong images {imageDontreaded}")
+        print(f"Discarded images: {discarded}")
+        print(f"Number of samples: {len(self.data)}")
 
 
     def get_transform_image(self, name, base):
@@ -229,40 +224,14 @@ class lesionDataset(Dataset):
 
         base = np.array(image_array)
 
-        # Usar "channels" del yaml (hasta 3 canales, mezclas ponderadas)
-        if getattr(self, "channels_spec", None):
+        if getattr(self, "channels", None):
             channels_out = []       
-            for spec in self.channels_spec:
+            for processing in self.channels:
                 if len(channels_out) >= 3:
                     break
-                # canal vacío
-                if spec in (0, "0", None) or (isinstance(spec, dict) and len(spec) == 0):
-                    channels_out.append(np.zeros_like(base, dtype=np.uint8))
-                    continue
-                if not isinstance(spec, dict):
-                    raise ValueError(f"Canal mal definido en YAML: {spec} (usa dict, 0 o {{}})")
+                arr = self.get_transform_image(processing, base)
 
-                names, weights = [], []
-                for k, v in spec.items():
-                    k_key = str(k).strip()
-                    if k_key in ("Zero", "None"):
-                        names, weights = ["Zero"], [1.0]
-                    else:
-                        names.append(k_key)
-                        weights.append(float(v))
-
-                w = np.array(weights, dtype=np.float32)
-                w = w/100
-
-                acc = np.zeros_like(base, dtype=np.float32)
-                for k_key, alpha in zip(names, w):
-                    if k_key in ("Zero",):
-                        arr = np.zeros_like(base, dtype=np.uint8)
-                    else:
-                        arr = self.get_transform_image(k_key, base)
-                    acc += alpha * arr.astype(np.float32)
-
-                channels_out.append(np.clip(acc, 0, 255).astype(np.uint8))
+                channels_out.append(np.clip(arr, 0, 255).astype(np.uint8))
 
             finalImage = np.stack(channels_out, axis=0) if channels_out else base[None, ...]
             image_array = (torch.from_numpy(finalImage).float()) / 255.0

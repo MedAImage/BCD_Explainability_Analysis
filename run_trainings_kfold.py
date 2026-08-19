@@ -6,9 +6,12 @@ import os
 PROJECT_DIRPATH = os.path.dirname(os.path.abspath(__file__))
 
 
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser("Train all the architectures using a K-Fold split, several data configurations and 5 random seeds")
 parser.add_argument("--positive_class", type=str, required=True,
                     help="Name of the positive_class")
+parser.add_argument("--dataroot", type=str, default=".", help="Root path to the dataset")
+parser.add_argument("--data_split_path", type=str, default=".", help="Path to the K-Fold split")
+
 parser.add_argument("--device", type=str, required=True,
                     help="Device (cuda:0, cuda:1)")
 args = parser.parse_args()
@@ -32,14 +35,31 @@ seeds = [
 
 
 positive_class = args.positive_class 
+dataroot = args.dataroot
+data_split_path = args.data_split_path
 
-if positive_class=="Microcalcificaciones":
-    augment_files = ["augment_transform_copy_clahe_topHat.yaml",
-                    "augment_transform_copy_clahe_topHat5x5.yaml"]
-    json_suffix = [ "copy_clahe_topHat",
-                    "copy_clahe_topHat5x5"]
-    
-    
+if positive_class=="Nodulo":
+    augment_files = ["augment_transform_copy_copy_copy.yaml",
+                     "augment_transform_copy_copy_clahe.yaml",
+                     "augment_transform_copy_clahe_enhance.yaml",
+                     "augment_transform_expand_flip.yaml",
+                     "augment_transform_copy_clahe_enhance_AUGM.yaml"]
+    json_suffix = ["copy_copy_copy",
+                    "copy_copy_clahe",
+                    "copy_clahe_enhance",
+                    "expand_flip",
+                    "copy_clahe_enhance_AUGM"]
+elif positive_class=="Microcalcificaciones":
+    augment_files = ["augment_transform_copy_copy_copy.yaml",
+                     "augment_transform_copy_copy_clahe.yaml",
+                     "augment_transform_copy_clahe_tophat.yaml",
+                     "augment_transform_expand_flip.yaml",
+                     "augment_transform_copy_clahe_tophat_AUGM.yaml"]
+    json_suffix = ["copy_copy_copy",
+                    "copy_copy_clahe",
+                    "copy_clahe_tophat",
+                    "expand_flip",
+                    "copy_clahe_tophat_AUGM"]
 else:
     print("Wrong positive class", positive_class)
     exit()
@@ -52,8 +72,8 @@ for seed in seeds:
     for i in range(5):
         k = 'K'+str(i+1)
 
-        trainset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_training_{positive_class}_76014.json'
-        valset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_validation_{positive_class}_76014.json'
+        trainset = f'{data_split_path}/{positive_class}/76014/{k}/joined_dataset_training_{positive_class}_76014.json'
+        valset = f'{data_split_path}/{positive_class}/76014/{k}/joined_dataset_validation_{positive_class}_76014.json'
 
 
         match = re.search(r'_(\d+)\.json$', trainset)
@@ -74,12 +94,12 @@ for seed in seeds:
                     "--trainset", trainset,
                     "--valset", valset,
                     "--positive_classes", positive_class,
-                    "--dataroot", PROJECT_DIRPATH,
+                    "--dataroot", dataroot,
                     "--augmentation_config_path", augm_file,
                     "--device", device
                 ]
 
-                cmd += ["--json_suffix", suffix +'_'+k]
+                cmd += ["--suffix", suffix +'_'+k]
 
                 print(f"Running: {' '.join(cmd)}\n")
                     

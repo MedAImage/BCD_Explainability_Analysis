@@ -1,10 +1,7 @@
 channels:
-  - {Copy: 100}
-  - {Copy: 100}
-  - {Copy: 100}
+  - "Copy"
+  - "Copy"
+  - "Copy"
 
 flipped: False
 expanded: False
-expanded_cropped : False
-expand_factors_cropped: [1.25, 0.8]
-testDebug: True

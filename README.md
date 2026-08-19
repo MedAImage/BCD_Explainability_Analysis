@@ -152,7 +152,7 @@ The configuration_files/augment_transform_ directory includes several data confi
 
 ### Model training
 
-To train a model, `use *train.py*, specifying the data and training configuration parameters as arguments:
+To train a model, `use *train.py*, specifying the data and training configuration parameters as argument:
 
 * --trainset: path to the JSON file containing the training set.
 * --valset: path to the JSON file containing the validation set. This set is used for early-stopping.
@@ -165,17 +165,18 @@ To train a model, `use *train.py*, specifying the data and training configuratio
 * --learning_rate: learning rate.
 * --positive_classes: name of the lesion acting as the positive class (use *Nodulo* for masses and *microcalcificaciones* for microcalcifications).
 * --seed: random seed used to reproduce the stochastic conditions of the training process.
+* --seed_split: seed used to generate the data split (used for the organization of the model files).
 * --model_save_path: path where the model will be saved (default is *bestModels*).
+* --suffix: suffix added to the name of the file.
 * --device: device used during the training process (default is *cuda*).
 
+The trained model is saved using the path specified in `*model_save_path*`. To facilitate model organization on disk, this path includes a subdirectory containing the split seed and, within that, another subdirectory named after the lesion. This is the final directory where the model is saved. The name assigned to the file has the following format: {MODEL}\_seed\_{SEED}\_{SUFFIX}.pth, with {MODEL}, {SEED} and {SUFFIX} being the values of the arguments *model*, *seed*, and *suffix*, respectively.
 
-
-This script generates a `.pth` file with the best weights trained, and are saved in the `bestModels` directory with the following structure:
-
+Next, an example of models' organization is shown:
 ```bash
 bestModels/
-└── Chosen_seed/
-    └── Positive_class_name/
+└── 76014/
+    └── Nodulo/
         ├── EfficientNetB0_seed_17143_copy_clahe_topHat5x5_K1.pth
         ├── CustomMobileNetV3_seed_17143_copy_clahe_topHat5x5_K1.pth
         .
@@ -183,8 +184,6 @@ bestModels/
         .
         └── CustomResNetBinary_seed_17143_copy_clahe_topHat5x5_K5.pth
 ```      
-
-
 
 
 ## Evaluation
