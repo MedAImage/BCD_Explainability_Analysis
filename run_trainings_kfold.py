@@ -14,47 +14,25 @@ parser.add_argument("--device", type=str, required=True,
 args = parser.parse_args()
 
 models = [
-    # "CustomDenseNet",
-    # "CustomResNetBinary",
-    # "CustomResNetBinary50",
-    # "EfficientNetB0",
+    "CustomDenseNet",
+    "CustomResNetBinary",
+    "CustomResNetBinary50",
+    "EfficientNetB0",
     "CustomMobileNetV3"
 ]
 
 
 seeds = [
     17143,
-    # 67291,    
-    #88078,
-    #51,
-    #666
+    67291,    
+    88078,
+    51,
+    666
 ]
 
 
 positive_class = args.positive_class 
 
-# if positive_class=="Nodulo":
-#     augment_files = ["augment_transform_copy_copy_copy.yaml",
-#                      "augment_transform_copy_copy_clahe.yaml",
-#                      "augment_transform_copy_clahe_enhance.yaml",
-#                      "augment_transform_expand_flip.yaml",
-#                      "augment_transform_copy_clahe_enhance_AUGM.yaml"]
-#     json_suffix = ["copy_copy_copy",
-#                     "copy_copy_clahe",
-#                     "copy_clahe_enhance",
-#                     "expand_flip",
-#                     "copy_clahe_enhance_AUGM"]
-# elif positive_class=="Microcalcificaciones":
-#     augment_files = ["augment_transform_copy_copy_copy.yaml",
-#                      "augment_transform_copy_copy_clahe.yaml",
-#                      "augment_transform_copy_clahe_tophat.yaml",
-#                      "augment_transform_expand_flip.yaml",
-#                      "augment_transform_copy_clahe_tophat_AUGM.yaml"]
-#     json_suffix = ["copy_copy_copy",
-#                     "copy_copy_clahe",
-#                     "copy_clahe_tophat",
-#                     "expand_flip",
-#                     "copy_clahe_tophat_AUGM"]
 if positive_class=="Microcalcificaciones":
     augment_files = ["augment_transform_copy_clahe_topHat.yaml",
                     "augment_transform_copy_clahe_topHat5x5.yaml"]
@@ -76,7 +54,6 @@ for seed in seeds:
 
         trainset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_training_{positive_class}_76014.json'
         valset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_validation_{positive_class}_76014.json'
-        testset = f'data_organization/json_splits/{positive_class}/76014/{k}/joined_dataset_test_{positive_class}_76014.json'
 
 
         match = re.search(r'_(\d+)\.json$', trainset)
@@ -96,7 +73,6 @@ for seed in seeds:
                     "--seed_split", str(seed_split),
                     "--trainset", trainset,
                     "--valset", valset,
-                    "--testset", testset,
                     "--positive_classes", positive_class,
                     "--dataroot", PROJECT_DIRPATH,
                     "--augmentation_config_path", augm_file,
