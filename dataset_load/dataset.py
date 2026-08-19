@@ -50,7 +50,7 @@ def rescale_image_and_rois(image, scaled_rois):
 
 ################## LESION DATASET ################## 
 class lesionDataset(Dataset):
-    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 100, shuffleTrain = False, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
+    def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 100, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
         
         # fix_seed(seed)
         self.dataPath = dataPath
@@ -65,16 +65,12 @@ class lesionDataset(Dataset):
         self.load_expanded  = bool(cfg.get("expanded", False))
         self.channels_spec  = cfg.get("channels", [])
 
-        self.load_expanded_cropped = bool(cfg.get("expanded_cropped", False))
-        self.expand_factors_cropped = cfg.get("expand_factors_cropped", [1.25, 0.8])  
 
         self.transforms_config = cfg.get("transformations", None)
 
         print(f"[dataset] flipped(V2): {self.load_flipped} | expanded(EXP): {self.load_expanded}")
         print(f"[dataset] channels: {self.channels_spec if self.channels_spec else 'None'}")
 
-        if self.load_expanded_cropped:
-            print(f"[dataset] expanded_cropped factors: {self.expand_factors_cropped}")
 
         self.data = []
         self.labels =[]
@@ -89,7 +85,6 @@ class lesionDataset(Dataset):
         self.NUM_CLASSES = len(positive_classes)
         
         self.transform_with_class = transform_with_class
-        self.shuffleTrain = shuffleTrain
 
         if os.path.isfile(dataPath) and dataPath.endswith(".json"):
             self.load_dataset_from_json(dataPath,limit)
@@ -97,9 +92,6 @@ class lesionDataset(Dataset):
             print('No valid format for loading the dataset', dataPath)
             exit()   
         self.datasetSize = len(self.data)
-        if self.shuffleTrain: 
-            self.orderDataset()
-            self.shuffleDataset()
 
     def load_dataset_from_json(self, dataPath, limit):
         count = 0
@@ -195,27 +187,6 @@ class lesionDataset(Dataset):
         print(f"Total de labels: {len(self.data)}")
 
 
-    def orderDataset(self):
-        print(f"Longitud del dataset original: {len(self.data)}")
-        for sample in self.data:
-            data = sample
-            if data[2][0]==1 :
-                self.positiveData.append(data)
-            elif data[2][0]==0:
-                self.negativeData.append(data)
-        self.data = self.positiveData + self.negativeData
-        self.datasetSize = len(self.positiveData)*2
-        print(f"Longitud del dataset de muestras positivas:{len(self.positiveData)}")
-        print(f"Longitud del dataset de muestras negativas{len(self.negativeData)}")
-        print(f"Longitud del dataset ordenado:{len(self.data)}")
-        
-    def shuffleDataset(self):
-        shuffledData = self.negativeData.copy()
-        random.shuffle(shuffledData)
-        self.data = self.positiveData + shuffledData[:len(self.positiveData)]   
-        print(f"Longitud del dataset shuffled:{len(self.data)}")
-
-
     def get_transform_image(self, name, base):
         if name == "Copy":
             return base
@@ -246,12 +217,6 @@ class lesionDataset(Dataset):
         for roi_type, boxes in scaled_rois.items()
         }
 
-        # Expandir/contraer las imagenes recortadas
-        if self.load_expanded_cropped and self.expand_factors_cropped:
-            factor = random.choice(self.expand_factors_cropped)  
-            image, scaled_rois = resize_width_and_rois(image, scaled_rois, factor)
-            if getattr(self, "testDebug", False):
-                print(f"[expanded_cropped] factor={factor:.3f} -> nueva shape: {image.shape}")
 
         img_name = os.path.basename(image_pth)
         
