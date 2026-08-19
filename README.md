@@ -9,10 +9,10 @@ Data and results can be downloaded using this [link](https://unexes-my.sharepoin
 
 
 
-## 1. Dataset and Format
+## Dataset
 
 The dataset used is composed of screening mammograms from two published datasets: **INbreast** and **VinDrMammo**.
-The annotations of the selected images of both dataset are available in a file called *joined_inbreast_vindr.json*.
+The annotations of the selected images of both datasets are available in a file called *joined_inbreast_vindr.json*.
 
 For each sample, its information is stored as follows:
 ```json
@@ -45,7 +45,7 @@ The fields composing each entry are:
 * Lists of the different lesions found in the image (field "label").
 
 The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(Suspicious Calcification), Calc_tip_benig (Suspicious Calcification).
-For the existing lesions, the field "label" includes a list of the regions where they are located (x, y, w, h).
+For the existing lesions, the field "label" includes a list of the image regions where they are located (x, y, w, h).
 
 
 ### Dataset preparation
@@ -118,7 +118,7 @@ The 5-fold split used in our experiments can be downloaded from the link provide
 ## Training
 ### Models' architecture
 
-This repository implements an attention-based architecture leveraging some of the most commonly used models in classification:
+This repository implements an attention-based architecture leveraging some of the most commonly used models for classification:
 
 * CustomResNetBinary: Based on ResNet-18.
 * CustomResNetBinary50: Based on ResNet-50.
@@ -144,8 +144,8 @@ The data configuration used for training an evaluation must be specified in a YA
 	* Clahe: result of applying the CLAHE filter.
 	* TopHat5x5: result of applying a white top-hat filter (5x5). It is used to enhance microcalcifications.
 	* EnhanceUniform: result of applying a custom filter designed to enhance mass-type lesions.
-* flipped: boolean flag to indicate whether or not to use the flipped version of the dataset images.
-* expanded: boolean flag to indicate whether or not to use the expanded/contracted versions of the dataset images.
+* flipped: boolean flag to indicate whether or not to use the flipped version of the images of the dataset.
+* expanded: boolean flag to indicate whether or not to use the expanded/contracted versions of the images of the dataset.
 
 The configuration_files/augment_transform_ directory includes several data configuration files used in our experiments.
 
@@ -159,11 +159,11 @@ To train a model, `use *train.py*, specifying the data and training configuratio
 * --dataroot: path to the directory containing the images' folder (*outDat*).
 * --model: backbone architecture used (CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, ...)
 * --augmentation_config_path: path to the data configuration file.
-* --batch_size: size of the batches used during training.
+* --batch_size: batch size used during training.
 * --number_of_epochs: maximum number of epochs.
 * --patience: number of epochs to wait for loss improvement on the validation set before stopping the training.
 * --learning_rate: learning rate.
-* --positive_classes: name of the lesion acting as the positive class (use *Nodulo* for masses and *microcalcificaciones* for microcalcifications).
+* --positive_classes: name of the lesion acting as the target class (use *Nodulo* for masses and *microcalcificaciones* for microcalcifications).
 * --seed: random seed used to reproduce the stochastic conditions of the training process.
 * --seed_split: seed used to generate the data split (used for the organization of the model files).
 * --model_save_path: path where the model will be saved (default is *bestModels*).
@@ -213,9 +213,7 @@ To run the script, you must specify the following arguments:
 * --metrics_run_path: path to the directory where the metrics' file will be saved.
 * --json_suffix: optional suffix to be added to the name of the metrics' file.
 
-Metrics are saved in the specified folder using the filename *Final_metrics\_runs\_{JSON_SUFFIX}.jsonl*, with {JSON_SUFFIX} being the string specified as argument in *--json_suffix*. In case the file alreade exists, the new metrics are added at the end of the file.
-
-Additionally, the script allows for visualizing of the explanation maps and comparison with several CAM methods. 
+The metrics are saved in the specified folder with the filename *Final\_metrics\_runs\_{JSON_SUFFIX}.jsonl*, where {JSON_SUFFIX} is the string specified as the *--json_suffix* argument. If the file already exists, the new metrics are appended to it.
 
 Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the `[pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git)` repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py*(function *scale_cam_image*); this normalization is otherwise performed by the script provided in our repository after obtaining some correlation metrics. 
 
