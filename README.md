@@ -1,7 +1,7 @@
-# Explainability-aware evaluation of CNNs for breast lesion detection
-Official implementation of the paper "Explainability-aware evaluation of CNNs for breast lesion detection"
+# Explainability-aware performance evaluation of CNNs for breast lesion detection
+Official implementation of the paper "Explainability-aware performance evaluation of CNNs for breast lesion detection"
 
-This work presents a framework to evaluate CNN-based models that jointly considers predictive performance and spatial explainability. In particular, we define an explainability score that quantifies the extent to which relevant activations are concentrated within expert-annotated regions. Based on this score, we reformulate conventional evaluation metrics to incorporate spatial explainability into performance assessment. Since evaluation reliability depends on the fidelity of the explanation maps, we also introduce an attention-based architecture that generates spatial contribution maps directly linked to the prediction process. 
+This work presents a framework for evaluating CNN-based models that jointly considers predictive performance and spatial explainability. In particular, we define an explainability score that quantifies the extent to which relevant activations are concentrated within expert-annotated regions. Based on this score, we reformulate conventional evaluation metrics to incorporate spatial explainability into performance assessment. Since evaluation reliability depends on the fidelity of the explanation maps, we also introduce an attention-based architecture that generates spatial contribution maps directly linked to the prediction process. 
 
 
 This repository contains all the necessary code to reproduce our experiments for breast lesion detection.
@@ -12,9 +12,9 @@ Data and results can be downloaded using this [link](https://unexes-my.sharepoin
 ## Dataset
 
 The dataset used is composed of screening mammograms from two published datasets: **INbreast** and **VinDrMammo**.
-The annotations of the selected images of both datasets are available in a file called *joined_inbreast_vindr.json*.
+The annotations for the selected images from both datasets are available in a file called *joined_inbreast_vindr.json*.
 
-For each sample, its information is stored as follows:
+For each sample, the corresponding information is stored as follows:
 ```json
 
 {
@@ -40,22 +40,22 @@ For each sample, its information is stored as follows:
 ```
 
 The fields composing each entry are:
-* The name of the image in dicom format to identify each entry.
-* The path to the image in png format (field "image").
+* The name of the image in DICOM format to identify each entry.
+* The path to the image in PNG format (field "image").
 * Lists of the different lesions found in the image (field "label").
 
-The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones(microcalcifications), Calc_tip_benig (Suspicious Calcification).
-For the existing lesions, the field "label" includes a list of the image regions where they are located (x, y, w, h).
+The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones (microcalcifications), and Calc_tip_benig (Suspicious Calcification).
+For lesions present in the image, the field "label" includes a list of the image regions where they are located (x, y, w, h).
 
 
 ### Dataset preparation
 
 To prepare the dataset, it is first necessary to download the original data from Vindr-Mammo and INbreast:
 
-* For VinDr-Mammo, you can access the data from here: [https://physionet.org/content/vindr-mammo/1.0.0/](https://physionet.org/content/vindr-mammo/1.0.0/)
+* For VinDr-Mammo, the data are available here: [https://physionet.org/content/vindr-mammo/1.0.0/](https://physionet.org/content/vindr-mammo/1.0.0/)
 * INBreast dataset is available at [https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset](https://www.kaggle.com/datasets/ramanathansp20/inbreast-dataset)
 
-Once both datasets have been downloaded and unzipped, the images composing our dataset can be extracted using the script 'data_organization/get_dataset_images.py':
+Once both datasets have been downloaded and unzipped, the images that compose our dataset can be extracted using the script 'data_organization/get_dataset_images.py':
 
 
 ```python
@@ -71,7 +71,7 @@ Some of these images contain letters indicating the laterality and projection of
 python cleanLetters.py PATH_TO_THE_DATASET_IMAGES
 ```
 
-Additionally, our dataset includes several versions of each image as result of applying different geometric transformations. To complete the dataset preparation stage, these additional versions should be generated running the script "data_augmentation/augment_dataset.py":
+Additionally, our dataset includes several versions of each image as a result of applying different geometric transformations. To complete the dataset preparation stage, these additional versions should be generated by running the script "data_augmentation/augment_dataset.py":
 
 
 ```python
@@ -80,7 +80,7 @@ python augment_dataset.py --dataset DATASET.json --dataroot PARENT_DIRECTORY_OF_
 ```
 
 ### Data splitting
-Once the dataset is prepared, it has to be splitted into train/validation/test sets. We provide two different scripts for this splitting in "data_organization": one producing a single partitioning and another one for K-Fold cross validation. To ensure results' reproducibility, both scripts require a random seed as argument. They can be run as follows:
+Once the dataset is prepared, it has to be split into train/validation/test sets. We provide two different scripts for this purpose in "data_organization": one producing a single partitioning and another one for K-fold cross-validation. To ensure the reproducibility of the results, both scripts require a random seed as an argument. They can be run as follows:
 
 For a single partitioning, run the following command:
 ```python
@@ -89,7 +89,7 @@ python train_val_test_split.py --dataset DATASET.json --seed SEED --positive_cla
 ```
 
 
-Alternatively, a K-Fold split can be generated with "kfold_split.py":
+Alternatively, a K-fold split can be generated with "kfold_split.py":
 
 ```python
 cd data_organization
@@ -116,7 +116,7 @@ The 5-fold split used in our experiments can be downloaded from the link provide
 
 
 ## Training
-### Models' architecture
+### Model architecture
 
 This repository implements an attention-based architecture leveraging some of the most commonly used models for classification:
 
@@ -126,42 +126,42 @@ This repository implements an attention-based architecture leveraging some of th
 * CustomMobileNetV3: Based on MobileNetV3 Large.
 * EfficientNetB0: Based on EfficientNet-B0.
 
-Each model has been modified by replacing its classification block with an attention-based head that provides a prediction score along with a contribution map that represents the contribution of each image region to the model's prediction.
+Each model has been modified by replacing its classification block with an attention-based head that provides a prediction score along with a contribution map that represents the contribution of each region to the model's prediction.
 
-The input of the models is a pytorch tensor of shape [B, 3, H, W] (Batch_size, Channels, Height, Width). The outputs of the model are:
+The input to the models is a PyTorch tensor of shape [B, 3, H, W] (Batch_size, Channels, Height, Width). The outputs of the models are:
 
 1. `Logit`: The prediction of the model, with shape [B, 1].
-2. `map_att`: The attention map from the attentional layer, with shape [B,1,H',W'].
-3. `map_cont`: the contribution map, with shape [B,1,H',W'].
+2. `map_att`: The attention map from the attention layer, with shape [B,1,H',W'].
+3. `map_cont`: The contribution map, with shape [B,1,H',W'].
 
 ### Data configuration
 We use different data configurations to analyze how different visual representations of the data affect model training and evaluation. Specifically, at the image level, the channels of the input images can be modified to contain different processed versions of the original mammogram. Likewise, at the dataset level, models can be trained with or without the augmented data provided by the flipped and expanded versions of the images.
 
-The data configuration used for training an evaluation must be specified in a YAML file. The fields in this file are the following:
+The data configuration used for training and evaluation must be specified in a YAML file. The fields in this file are the following:
 
-* channels: list of the processing techniques applied to the channels of the image. The different types of processing that can be applied per channel are:
+* channels: a list with the processing techniques applied to each channel of the image. The different types of processing that can be specified are:
 	* Copy: original channel.
 	* Clahe: result of applying the CLAHE filter.
 	* TopHat5x5: result of applying a white top-hat filter (5x5). It is used to enhance microcalcifications.
 	* EnhanceUniform: result of applying a custom filter designed to enhance mass-type lesions.
-* flipped: boolean flag to indicate whether or not to use the flipped version of the images of the dataset.
-* expanded: boolean flag to indicate whether or not to use the expanded/contracted versions of the images of the dataset.
+* flipped: boolean flag to indicate whether or not to use the flipped version of the images in the dataset.
+* expanded: boolean flag to indicate whether or not to use the expanded/contracted versions of the images in the dataset.
 
-The configuration_files/augment_transform_ directory includes several data configuration files used in our experiments.
+The *configuration_files/augment_transform_* directory includes several data configuration files used in our experiments.
 
 
 ### Model training
 
-To train a model, `use *train.py*, specifying the data and training configuration parameters as arguments:
+To train a model, use *train.py*, specifying the data and training configuration parameters as follows:
 
 * --trainset: path to the JSON file containing the training set.
-* --valset: path to the JSON file containing the validation set. This set is used for early-stopping.
-* --dataroot: path to the directory containing the images' folder (*outDat*).
+* --valset: path to the JSON file containing the validation set. This set is used for early stopping.
+* --dataroot: path to the directory containing the image folder (*outDat*).
 * --model: backbone architecture used (CustomResNetBinary, CustomResNetBinary50, CustomDenseNet, ...)
 * --augmentation_config_path: path to the data configuration file.
 * --batch_size: batch size used during training.
 * --number_of_epochs: maximum number of epochs.
-* --patience: number of epochs to wait for loss improvement on the validation set before stopping the training.
+* --patience: number of epochs to wait for loss improvement on the validation set before stopping training.
 * --learning_rate: learning rate.
 * --positive_classes: name of the lesion acting as the target class (use *Nodulo* for masses and *microcalcificaciones* for microcalcifications).
 * --seed: random seed used to reproduce the stochastic conditions of the training process.
@@ -170,9 +170,9 @@ To train a model, `use *train.py*, specifying the data and training configuratio
 * --suffix: suffix added to the name of the file.
 * --device: device used during the training process (default is *cuda*).
 
-The trained model is saved using the path specified in `*model_save_path*`. To facilitate model organization on disk, this path includes a subdirectory containing the split seed and, within that, another subdirectory named after the lesion. This is the final directory where the model is saved. The name assigned to the file has the following format: {MODEL}\_seed\_{SEED}\_{SUFFIX}.pth, with {MODEL}, {SEED} and {SUFFIX} being the values of the arguments *model*, *seed*, and *suffix*, respectively.
+The trained model is saved using the path specified in *model_save_path*. To facilitate model organization on disk, this path includes a subdirectory containing the split seed and, within that, another subdirectory named after the lesion. This is the final directory where the model is saved. The name assigned to the file has the following format: {MODEL}\_seed\_{SEED}\_{SUFFIX}.pth, with {MODEL}, {SEED}, and {SUFFIX} being the values of the arguments *model*, *seed*, and *suffix*, respectively.
 
-Next, an example of models' organization is shown:
+Next, an example of how the models are organized is shown:
 ```bash
 bestModels/
 └── 76014/
@@ -184,22 +184,22 @@ bestModels/
         .
         └── CustomResNetBinary_seed_17143_copy_clahe_topHat5x5_K5.pth
 ```      
-### Training models' with K-Fold cross validation
+### Training models with K-fold cross-validation
 
-The experiments reported in our work evaluate different model architectures as well as different data and training conditions using K-Fold cross-validation. The trained models are available at this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc).
+The experiments reported in our work evaluate different model architectures as well as different data and training conditions using K-fold cross-validation. The trained models are available at this [link](https://unexes-my.sharepoint.com/:f:/g/personal/pilarb_unex_es/IgCqpDamD-eLS72AecX2B8hUARQbNI5aEcKYVoxqR2SXn6M?e=EVqQyc).
 
-To reproduce the experiments, you can run the script *run_trainings_kfold.py* for each type of lesion. The following arguments has to be specified:
+To reproduce the experiments, you can run the script *run_trainings_kfold.py* for each type of lesion. The following arguments must be specified:
 
 * --positive_classes: name of the lesion acting as the positive class.
-* --dataroot: path to the directory containing the images' folder (*outDat*).
-* --data_split_path: path to the directory containing the K-Fold split.
+* --dataroot: path to the directory containing the image folder (*outDat*).
+* --data_split_path: path to the directory containing the K-fold split.
 * --device: device used for training.
 
-The script trains a total of 625 models per lesion type, varying the backbone, training seed, data configuration, and dataset split. Each model's filename includes a suffix indicating the data configuration and the split number. The script can be modified to reduce the number of training runs and thus avoid an excessive number of executions.
+The script trains a total of 625 models per lesion type, varying the backbone, training seed, data configuration, and dataset split. Each model's filename includes a suffix indicating the data configuration and the split number. Depending on your hardware, this process may take several days or weeks. Consider downloading the trained models instead. In addition, you can modify the script to train a selected subset of configurations and thus avoid an excessive number of executions.
 
 ## Evaluation
 
-Once a model is trained, it can be evaluated using *get_model_metrics.py*. This script generates a report in JSON format contaning different metrics: standard evaluation metrics (precision, recall, F1-score, ...), explainability-aware versions of those metrics as well as metrics used to assess the fidelity and quality of the generated contribution maps.
+Once a model is trained, it can be evaluated using *get_model_metrics.py*. This script generates a report in JSON format containing different metrics: standard evaluation metrics (precision, recall, F1-score, ...), explainability-aware versions of those metrics, as well as metrics used to assess the fidelity and quality of the generated contribution maps.
 
 To run the script, you must specify the following arguments:
 
@@ -207,17 +207,17 @@ To run the script, you must specify the following arguments:
 * --dataroot: path to the directory containing the images' folder (*outDat*).
 * --model: backbone architecture.
 * --model_weights_path: path to the model file.
-* --seed: random seed used during the model training.
-* --positive_classes: lesion name used as target class during the model training.
+* --seed: random seed used during model training.
+* --positive_classes: lesion name used as the target class during model training.
 * --augmentation_config_path: data configuration file used for training the model.
-* --metrics_run_path: path to the directory where the metrics' file will be saved.
-* --json_suffix: optional suffix to be added to the name of the metrics' file.
+* --metrics_run_path: path to the directory where the metrics file will be saved.
+* --json_suffix: optional suffix to be added to the name of the metrics file.
 
 The metrics are saved in the specified folder with the filename *Final\_metrics\_runs\_{JSON_SUFFIX}.jsonl*, where {JSON_SUFFIX} is the string specified as the *--json_suffix* argument. If the file already exists, the new metrics are appended to it.
 
-Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the `[pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git)` repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py*(function *scale_cam_image*); this normalization is otherwise performed by the script provided in our repository after obtaining some correlation metrics. 
+Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git)` repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py* (function *scale_cam_image*); this normalization is performed by the script provided in our repository after obtaining some correlation metrics. 
 
-To visualize the maps, it is necessary to add the *--show_maps*`option to the list of arguments. Additionally, to obtain comparative metrics with CAM methods, you must specify the *--compare_cam*` argument. If both arguments are enabled, the CAM maps are included in the visualization.
+To visualize the maps, it is necessary to add the *--show_maps* option to the list of arguments. Additionally, to obtain comparison metrics with CAM methods, you must specify the *--compare_cam* argument. If both arguments are enabled, the CAM maps are included in the visualization.
 
 
 ### Evaluation of all trained models
@@ -226,19 +226,19 @@ As with training, all models trained in our experiments for each type of lesion 
 
 * --models_path: path to the directory containing all the trained models.
 * --positive_classes: name of the lesion acting as the positive class.
-* --dataroot: path to the directory containing the images' folder (*outDat*).
-* --data_split_path: path to the directory containing the K-Fold split.
+* --dataroot: path to the directory containing the image folder (*outDat*).
+* --data_split_path: path to the directory containing the K-fold split.
 * --device: device used for training.
 
-The script creates a directory called *ALL_metrics* containing a JSONL file for each data split. Each file includes the evaluation metrics for all the models trained using the corresponding split. 
+The script creates a directory called *ALL_metrics* containing a JSONL file for each data configuration and split. Each file includes the evaluation metrics for all the models trained using the corresponding split. 
 
-## Results' analysis
+## Results analysis
 
-This repository contains several tools to make a visual representation of the metrics in the json files from `Metrics_runs/`.
+This repository contains several tools to summarize and visualize the metrics in the JSON files obtained from the evaluation.
 
-* `analyze_performance_results.py`: analyzes the performance of the models using standard and explainability-aware metrics.To illustrate this, the script generates a table with all numeric results, a bar charts to compare standard and explainability-aware metrics, and heatmaps detailing the penalization of F1-Score and AUC per architecture, energy threshold and data configurations.
-* `analyze_stability_results.py`: analyzes the stability and robustness of the models through the different K-Folds and seeds. To visualize this, the script generates a heatmap comparing the standard deviation of F1-Score and AUC in their standard and explainability-aware versions. Also generates swarmplots depicting the effect of different random seeds and data partitioning in the performance of the models.
-* `analyze_xai_results.py`: analyzes the fidelity and quality of XAI methods by evaluating the correspondence between explanation maps and model predictions, as well as the alignment of highlighted image regions with the data annotations. For this purpose, it generates a table with the mean and standard deviation of the Spearman correlation for each architecture and explainability method. In addition, it generates a boxplot comparing the pointing game accuracy of the different methods, and a swarmplot showing the ROI energy fraction provided by each explanation map using different architectures and energy thresholds.
+* `analyze_performance_results.py`: analyzes the performance of the models using standard and explainability-aware metrics. For this purpose, the script generates a table with all numeric results, bar charts to compare standard and explainability-aware metrics, and heatmaps detailing the explainability penalty of F1-Score and AUC per architecture, energy threshold, and data configuration.
+* `analyze_stability_results.py`: analyzes the stability and robustness of the models across the different data splits and seeds. To visualize this, the script generates a heatmap comparing the standard deviation of the standard and explainability-aware versions of F1-Score and AUC. It also generates swarmplots depicting the effect of different random seeds and data partitioning on the performance of the models.
+* `analyze_xai_results.py`: analyzes the fidelity and quality of XAI methods by evaluating the correspondence between explanation maps and model predictions, as well as the alignment of highlighted image regions with the data annotations. For this purpose, it generates a table with the mean and standard deviation of the Spearman correlation coefficient for each architecture and explainability method. In addition, it generates a boxplot comparing the pointing game accuracy of the different methods, and a swarmplot showing the ROI energy fraction provided by each explanation map for different architectures and energy thresholds.
 
 
 If you need any help or have any suggestions, please contact us:
