@@ -41,7 +41,6 @@ def normal_transform():
 class lesionDataset(Dataset):
     def __init__(self, dataPath, positive_classes, transform_with_class = None, limit = 1000000, testDebug = False, seed = None,transforms_config = None, dataroot='.', withLTimeAugmentation=False):
         
-        # fix_seed(seed)
         self.dataPath = dataPath
         self.dataroot = dataroot
         self.testDebug = testDebug

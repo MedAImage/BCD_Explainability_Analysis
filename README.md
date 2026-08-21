@@ -11,7 +11,7 @@ Data and results can be downloaded using this [link](https://unexes-my.sharepoin
 
 ## Dataset
 
-The dataset used is composed of screening mammograms from two published datasets: **INbreast** and **VinDrMammo**.
+The dataset used is composed of screening mammograms from two publicly available datasets: **INbreast** and **VinDrMammo**.
 The annotations for the selected images from both datasets are available in a file called *joined_inbreast_vindr.json*.
 
 For each sample, the corresponding information is stored as follows:
@@ -44,7 +44,7 @@ The fields composing each entry are:
 * The path to the image in PNG format (field "image").
 * Lists of the different lesions found in the image (field "label").
 
-The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones (microcalcifications), and Calc_tip_benig (Suspicious Calcification).
+The lesions are Nodulo (mass), Distorsion_arq (architectural distortion), Densidad_asim_foc (focal asymmetry), Microcalcificaciones (microcalcifications), and Calc_tip_benig (macrocalcifications).
 For lesions present in the image, the field "label" includes a list of the image regions where they are located (x, y, w, h).
 
 
@@ -215,7 +215,7 @@ To run the script, you must specify the following arguments:
 
 The metrics are saved in the specified folder with the filename *Final\_metrics\_runs\_{JSON_SUFFIX}.jsonl*, where {JSON_SUFFIX} is the string specified as the *--json_suffix* argument. If the file already exists, the new metrics are appended to it.
 
-Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git)` repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py* (function *scale_cam_image*); this normalization is performed by the script provided in our repository after obtaining some correlation metrics. 
+Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git) repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py* (function *scale_cam_image*); this normalization is performed by the script provided in our repository after obtaining some correlation metrics. 
 
 To visualize the maps, it is necessary to add the *--show_maps* option to the list of arguments. Additionally, to obtain comparison metrics with CAM methods, you must specify the *--compare_cam* argument. If both arguments are enabled, the CAM maps are included in the visualization.
 
@@ -230,7 +230,7 @@ As with training, all models trained in our experiments for each type of lesion 
 * --data_split_path: path to the directory containing the K-fold split.
 * --device: device used for training.
 
-The script creates a directory called *ALL_metrics* containing a JSONL file for each data configuration and split. Each file includes the evaluation metrics for all the models trained using the corresponding split. 
+The script creates a directory called *ALL_metrics* containing a JSONL file for each data configuration and split. Each file includes the evaluation metrics for all the models trained using the corresponding data configuration and split. 
 
 ## Results analysis
 
