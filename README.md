@@ -164,7 +164,7 @@ To train a model, use *train.py*, specifying the data and training configuration
 * --patience: number of epochs to wait for loss improvement on the validation set before stopping training.
 * --learning_rate: learning rate.
 * --positive_classes: name of the lesion acting as the target class (use *Nodulo* for masses and *microcalcificaciones* for microcalcifications).
-* --seed: random seed used to reproduce the stochastic conditions of the training process.
+* --seed: random seed used to establish different training conditions.
 * --seed_split: seed used to generate the data split (used for the organization of the model files).
 * --model_save_path: path where the model will be saved (default is *bestModels*).
 * --suffix: suffix added to the name of the file.
