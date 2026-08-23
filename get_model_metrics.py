@@ -16,12 +16,10 @@ import copy
 import math
 from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
-import sys
-sys.path.append('./pytorch-grad-cam')
-from pytorch_grad_cam import GradCAMPlusPlus, EigenCAM, ShapleyCAM
-from pytorch_grad_cam.utils.model_targets import BinaryClassifierOutputTarget
-from pytorch_grad_cam.utils.image import show_cam_on_image
-from torchvision.ops import box_iou
+# import sys
+# sys.path.append('./pytorch-grad-cam')
+import pytorch_grad_cam
+from scipy.ndimage import zoom
 from utils.pos_weight_samples import pos_weight_samples
 WIMG = 709
 HIMG = 800
@@ -72,13 +70,31 @@ def find_last_spatial_layer(model, input_size=(1, 3, 224, 224), device="cpu"):
 
     return last_spatial_module
 
-#WRAPPER ADAPTER FOR THE FORWARD, PASSING XTYPE AND OUT_ADAPTER NEEDS TO BE ADDRESSED
+def scale_cam_image_without_normalization(cam, target_size=None):
+    result = []
+    for img in cam:
+        if target_size is not None:
+            if len(img.shape) > 2:
+                img = zoom(np.float32(img), [
+                           (t_s / i_s) for i_s, t_s in zip(img.shape, target_size[::-1])])
+            else:
+                img = cv2.resize(np.float32(img), target_size)
+
+        result.append(img)
+    result = np.float32(result)
+    return result
+
+pytorch_grad_cam.base_cam.scale_cam_image = scale_cam_image_without_normalization
+pytorch_grad_cam.utils.image.scale_cam_image = scale_cam_image_without_normalization
+from pytorch_grad_cam import GradCAMPlusPlus, EigenCAM, ShapleyCAM
+from pytorch_grad_cam.utils.model_targets import BinaryClassifierOutputTarget
+from pytorch_grad_cam.utils.image import show_cam_on_image
+
 class CamWrapperAdapter(nn.Module):
     def __init__(self, model: nn.Module):
         super().__init__()
         self.model = model
 
-    #MAKES DISTINCTION BETWEEN FORMS OF RETURN, LIKE TYPES AND ADAPTER OUTPUT
     def forward(self, x: torch.Tensor):
         out = self.model(x)
         if isinstance(out,(tuple, list)):
@@ -598,5 +614,5 @@ if __name__ == "__main__":
     get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, 
                       dataroot=args.dataroot, transformsConfig=transformsConfig,
                       save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, 
-                      show_image = args.show_maps, compare_cam = args.compare_cam, limit = 100)
+                      show_image = args.show_maps, compare_cam = args.compare_cam, limit = 10000)
 
