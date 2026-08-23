@@ -193,7 +193,7 @@ To reproduce the experiments, you can run the script *run_trainings_kfold.py* fo
 * --positive_classes: name of the lesion acting as the positive class.
 * --dataroot: path to the directory containing the image folder (*outDat*).
 * --data_split_path: path to the directory containing the K-fold split.
-* --device: device used for training.
+* --device: device used during the training process.
 
 The script trains a total of 625 models per lesion type, varying the backbone, training seed, data configuration, and dataset split. Each model's filename includes a suffix indicating the data configuration and the split number. Depending on your hardware, this process may take several days or weeks. Consider downloading the trained models instead. In addition, you can modify the script to train a selected subset of configurations and thus avoid an excessive number of executions.
 
@@ -215,7 +215,7 @@ To run the script, you must specify the following arguments:
 
 The metrics are saved in the specified folder with the filename *Final\_metrics\_runs\_{JSON_SUFFIX}.jsonl*, where {JSON_SUFFIX} is the string specified as the *--json_suffix* argument. If the file already exists, the new metrics are appended to it.
 
-Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. To do this, you must clone the [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git) repository into the project's main folder. Furthermore, to obtain fidelity metrics for these additional methods, you need to disable map normalization by commenting out lines 164-171 of the file *pytorch-grad-cam/pytorch_grad_cam/utils/image.py* (function *scale_cam_image*); this normalization is performed by the script provided in our repository after obtaining some correlation metrics. 
+Additionally, the script allows for visualizing the generated contribution maps and comparing them with various CAM methods. For the latter, you must install [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam.git).
 
 To visualize the maps, it is necessary to add the *--show_maps* option to the list of arguments. Additionally, to obtain comparison metrics with CAM methods, you must specify the *--compare_cam* argument. If both arguments are enabled, the CAM maps are included in the visualization.
 
@@ -228,7 +228,6 @@ As with training, all models trained in our experiments for each type of lesion 
 * --positive_classes: name of the lesion acting as the positive class.
 * --dataroot: path to the directory containing the image folder (*outDat*).
 * --data_split_path: path to the directory containing the K-fold split.
-* --device: device used for training.
 
 The script creates a directory called *ALL_metrics* containing a JSONL file for each data configuration and split. Each file includes the evaluation metrics for all the models trained using the corresponding data configuration and split. 
 

@@ -16,8 +16,6 @@ import copy
 import math
 from tqdm import tqdm
 from scipy.stats import pearsonr, spearmanr
-# import sys
-# sys.path.append('./pytorch-grad-cam')
 import pytorch_grad_cam
 from scipy.ndimage import zoom
 from utils.pos_weight_samples import pos_weight_samples
@@ -73,13 +71,6 @@ def find_last_spatial_layer(model, input_size=(1, 3, 224, 224), device="cpu"):
 def scale_cam_image_without_normalization(cam, target_size=None):
     result = []
     for img in cam:
-        if target_size is not None:
-            if len(img.shape) > 2:
-                img = zoom(np.float32(img), [
-                           (t_s / i_s) for i_s, t_s in zip(img.shape, target_size[::-1])])
-            else:
-                img = cv2.resize(np.float32(img), target_size)
-
         result.append(img)
     result = np.float32(result)
     return result
@@ -348,7 +339,7 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
 
     target_layer = [find_last_spatial_layer(model.base_model), model.head.proj, model.head.attn[-1]]
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
     state_dict = torch.load(bestModelPth, map_location = device)
     model.load_state_dict(state_dict)
     model = model.to(device) 
@@ -427,9 +418,6 @@ def get_model_metrics(testDataset, positive_classes, loadedseed, modelName, best
 
                 img_size = cvimg.shape
                 cvimg_orig = cv2.resize(cvimg[:,:,0], (WIMG, HIMG))
-                # cvimg = cv2.cvtColor(cvimg_orig, cv2.COLOR_GRAY2BGR)
-                # cvimg = draw_rois(cvimg, batch_rois, img_size, positive_classes)
-                # cvimg = cv2.putText(cvimg, pr_text, (50,50), font, 1, (0,255,0), 2)
                 base = cvimg_orig.astype(np.float32) / 255.0
                 base = np.stack([base, base, base], axis=-1)
 
@@ -614,5 +602,5 @@ if __name__ == "__main__":
     get_model_metrics(args.testset, args.positive_classes, args.seed, args.model , args.model_weights_path, 
                       dataroot=args.dataroot, transformsConfig=transformsConfig,
                       save_completeMetrics_path=args.metrics_run_path, json_suffix=args.json_suffix, 
-                      show_image = args.show_maps, compare_cam = args.compare_cam, limit = 10000)
+                      show_image = args.show_maps, compare_cam = args.compare_cam, limit = 100000)
 
